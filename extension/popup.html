@@ -1,14 +1,22 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><style>
-body{width:300px;margin:0;padding:18px;font-family:Pretendard,system-ui,sans-serif;color:#16161A;background:#F6F5F2}
-h1{font-size:17px;margin:0 0 4px}p{font-size:13px;color:#5D5D66;margin:4px 0 12px;line-height:1.5}
-button{width:100%;border:0;border-radius:12px;padding:11px;margin:4px 0;font-weight:700;cursor:pointer;background:#F0EFEB;font:inherit;font-weight:700}
-button.main{background:#FF5A36;color:#fff}#s{font-size:12px;background:#fff;border-radius:10px;padding:10px;min-height:18px;margin-top:8px}
+body{width:320px;margin:0;padding:18px;font-family:"Pretendard Variable",Pretendard,system-ui,sans-serif;color:#16161A;background:#F6F5F2}
+.h{display:flex;align-items:center;gap:8px}.h img{width:26px;height:26px;border-radius:8px}h1{font-size:17px;margin:0}
+p{font-size:12.5px;color:#5D5D66;margin:6px 0 12px;line-height:1.5}small{display:block;color:#9A9AA3;font-size:11px;margin:10px 0 2px}
+button{width:100%;border:0;border-radius:12px;padding:11px;margin:3px 0;cursor:pointer;background:#ECEAE5;font:inherit;font-size:13.5px;font-weight:700;color:#16161A;text-align:left}
+button.main{background:#FF5A36;color:#fff;text-align:center}button:disabled{opacity:.5}
+#s{font-size:12px;background:#fff;border:1px solid #E7E5E0;border-radius:10px;padding:10px;min-height:18px;margin-top:10px;line-height:1.5;white-space:pre-wrap}
 </style></head><body>
-<h1>렛츠바이</h1><p>네이버 메일 탭에서 실행하세요. 데이터는 이 브라우저에만 저장됩니다.</p>
+<div class="h"><img src="icons/icon128.png" alt=""><h1>렛츠바이</h1></div>
+<p>데이터는 이 브라우저에만 저장돼요. 비밀번호는 묻지 않아요.</p>
+<small>네이버 메일 탭에서</small>
 <button class="main" id="collect">주문메일 자동 수집 (최근 2년)</button>
 <button id="one">지금 열린 메일 담기</button>
-<button id="price">가격 지금 기록하기</button>
-<button id="open">렛츠바이 열기</button>
-<button id="dl">JSON 내보내기</button>
+<small>가격과 알림</small>
+<button id="price">오늘 가격 지금 기록하기</button>
+<button id="notify">알림 테스트</button>
+<small>기타</small>
+<button id="open">렛츠바이 웹 열기</button>
+<button id="dl">데이터 내보내기 (JSON)</button>
+<button id="diag">진단 정보 내보내기</button>
 <div id="s">대기 중</div>
 <script src="popup.js"></script></body></html>

@@ -1,34 +1,82 @@
 importScripts('core.js');
-chrome.runtime.onInstalled.addListener(() => chrome.alarms.create('price', { periodInMinutes: 24 * 60, delayInMinutes: 1 }));
-chrome.alarms.onAlarm.addListener(a => { if (a.name === 'price') collectPrices(); });
+const diag = (step, ok, info) => chrome.storage.local.get('diag', d => { const a = (d.diag || []).slice(-199); a.push({ t: new Date().toISOString(), step, ok, info: String(info || '').slice(0, 200), where: 'background' }); chrome.storage.local.set({ diag: a }); });
+const todayStr = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); // 한국 날짜
+
+chrome.runtime.onInstalled.addListener(() => setup());
+chrome.runtime.onStartup.addListener(() => setup());
+function setup() { chrome.alarms.create('daily', { periodInMinutes: 6 * 60, delayInMinutes: 1 }); }
+// 6시간마다 깨어나서 오늘 아직 안 했으면 실행 (브라우저가 꺼져 있던 날도 다음 실행 때 따라잡음)
+chrome.alarms.onAlarm.addListener(async a => {
+  if (a.name !== 'daily') return;
+  const { pricedAt } = await chrome.storage.local.get('pricedAt');
+  if (pricedAt !== todayStr()) { await collectPrices(); await notify(); }
+});
 chrome.runtime.onMessage.addListener((m, _s, reply) => {
   if (m.type === 'orders') saveOrders(m.orders).then(n => chrome.runtime.sendMessage({ type: 'saved', total: n }).catch(() => {}));
-  if (m.type === 'pricesNow') { collectPrices().then(r => reply(r)); return true; }
+  if (m.type === 'pricesNow') { collectPrices().then(r => notify().then(() => reply(r))); return true; }
+  if (m.type === 'testNotify') { show('test', '렛츠바이 알림 테스트', '알림이 잘 보이면 준비 완료예요.'); reply({}); }
 });
+chrome.notifications.onClicked.addListener(() => chrome.tabs.create({ url: 'https://pyw31337.github.io/buy/' }));
+
 async function saveOrders(list) {
   const { orders = [] } = await chrome.storage.local.get('orders');
   const seen = new Set(orders.map(o => o.date + o.name));
-  for (const o of list) if (o.date && !seen.has(o.date + o.name)) { orders.push(o); seen.add(o.date + o.name); }
+  let added = 0;
+  for (const o of list || []) if (o.date && o.name && !seen.has(o.date + o.name)) { orders.push(o); seen.add(o.date + o.name); added++; }
   await chrome.storage.local.set({ orders });
+  diag('save', true, `added=${added} total=${orders.length}`);
   return orders.length;
 }
-// 다나와 검색결과 첫 상품의 최저가를 하루 1회 기록 (사용자 브라우저에서, 품목당 1요청)
+
+// 가격 소스: 순서대로 시도. 모두 사용자 브라우저(국내 IP)에서 품목당 하루 1회만 요청
+const SOURCES = [
+  { name: '다나와', url: q => 'https://search.danawa.com/dsearch.php?query=' + q,
+    parse: h => (h.match(/class="price_sect"[\s\S]{0,500}?<strong>([0-9,]+)<\/strong>/) || h.match(/<em class="prc_c">([0-9,]+)<\/em>/) || [])[1] },
+  { name: '에누리', url: q => 'https://www.enuri.com/search.jsp?keyword=' + q,
+    parse: h => (h.match(/"minprice"\s*:\s*"?([0-9]+)/i) || h.match(/class="tx--price"[^>]*>\s*([0-9,]+)/) || [])[1] },
+];
+async function fetchText(u) { const c = new AbortController(); const t = setTimeout(() => c.abort(), 15000); try { const r = await fetch(u, { signal: c.signal }); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.text(); } finally { clearTimeout(t); } }
+
 async function collectPrices() {
-  const { orders = [], prices = {} } = await chrome.storage.local.get(['orders', 'prices']);
-  const items = LetsBuy.analyze(orders);
-  const today = new Date().toISOString().slice(0, 10); let ok = 0;
+  const { orders = [], prices = {}, aliases = {} } = await chrome.storage.local.get(['orders', 'prices', 'aliases']);
+  const items = LetsBuy.analyze(orders, todayStr(), aliases), today = todayStr(); let ok = 0; const fails = {};
   for (const it of items) {
-    try {
-      const q = it.name.split(' ').slice(0, 5).join(' ');
-      const html = await (await fetch('https://search.danawa.com/dsearch.php?query=' + encodeURIComponent(q))).text();
-      const m = html.match(/class="price_sect"[\s\S]{0,400}?<strong>([0-9,]+)<\/strong>/) || html.match(/<strong>([0-9]{1,3}(?:,[0-9]{3})+)<\/strong>\s*원/);
-      if (!m) continue;
-      const arr = (prices[it.key] || []).filter(p => p.date !== today);
-      arr.push({ date: today, price: +m[1].replace(/,/g, ''), mall: '다나와 최저' });
-      prices[it.key] = arr.slice(-730); ok++;
-    } catch (_) {}
+    const q = encodeURIComponent(LetsBuy.tokens(it.name).slice(0, 5).join(' ') || it.name);
+    for (const s of SOURCES) {
+      try {
+        const v = s.parse(await fetchText(s.url(q)));
+        const price = v ? +String(v).replace(/,/g, '') : 0;
+        if (!price || price < 100) throw new Error('가격을 못 찾음');
+        const arr = (prices[it.key] || []).filter(p => p.date !== today);
+        arr.push({ date: today, price, mall: s.name + ' 최저' });
+        prices[it.key] = arr.slice(-730); ok++; break;
+      } catch (e) { fails[s.name] = (fails[s.name] || 0) + 1; }
+    }
     await new Promise(r => setTimeout(r, 1500));
   }
   await chrome.storage.local.set({ prices, pricedAt: today });
-  return { ok, total: items.length };
+  diag('prices', ok > 0 || !items.length, `ok=${ok}/${items.length} fails=${JSON.stringify(fails)}`);
+  return { ok, total: items.length, fails };
+}
+
+function show(id, title, message) { chrome.notifications.create('lb-' + id + '-' + Date.now(), { type: 'basic', iconUrl: 'icons/icon128.png', title, message, priority: 1 }); }
+async function notify() {
+  const { orders = [], prices = {}, aliases = {}, notified = {}, settings = { due: true, drop: true } } = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'notified', 'settings']);
+  const today = todayStr(), items = LetsBuy.analyze(orders, today, aliases);
+  for (const it of items) {
+    if (settings.due && it.type !== '비정기' && it.type !== '시즌' && it.daysLeft <= 3 && notified['due:' + it.key] !== it.nextDate) {
+      show('due', '다시 살 때가 됐어요', `${it.name} · 평균 ${it.avgGap}일마다 사셨어요`); notified['due:' + it.key] = it.nextDate;
+    }
+    if (settings.due && it.type === '시즌' && it.daysLeft <= 21 && it.daysLeft >= 0 && notified['season:' + it.key] !== it.nextDate) {
+      show('season', '곧 시즌이에요', `${it.name} · 매년 ${+it.nextDate.slice(5, 7)}월쯤 사셨어요`); notified['season:' + it.key] = it.nextDate;
+    }
+    const p = prices[it.key] || [];
+    if (settings.drop && p.length >= 7 && p[p.length - 1].date === today) {
+      const now = p[p.length - 1].price, past = p.slice(-31, -1), avg = past.reduce((a, x) => a + x.price, 0) / past.length, min = Math.min(...past.map(x => x.price));
+      if (now <= min && now < avg * 0.93 && notified['drop:' + it.key] !== today) {
+        show('drop', '가격이 내려갔어요', `${it.name} · ${now.toLocaleString()}원 (최근 평균보다 ${Math.round(100 - now / avg * 100)}% 쌈)`); notified['drop:' + it.key] = today;
+      }
+    }
+  }
+  await chrome.storage.local.set({ notified });
 }

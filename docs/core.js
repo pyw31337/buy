@@ -1,7 +1,7 @@
 /* 렛츠바이 core: 주문메일 파싱 + 재구매 분석 (브라우저/확장/Node 공용) */
 (function (root) {
   const MALLS = [
-    ['쿠팡', /coupang/i], ['네이버페이', /naver ?pay|네이버페이|navercorp|smartstore|스마트스토어/i],
+    ['쿠팡', /coupang|쿠팡|로켓배송/i], ['네이버페이', /naver ?pay|네이버페이|navercorp|smartstore|스마트스토어/i],
     ['G마켓', /gmarket|G마켓|지마켓/i], ['옥션', /auction|옥션/i], ['11번가', /11st|11번가/i],
     ['SSG', /ssg\.com|SSG|이마트몰|신세계몰/], ['마켓컬리', /kurly|컬리/i], ['오늘의집', /오늘의집|ohou/i],
     ['위메프', /wemakeprice|위메프/i], ['티몬', /tmon|티몬/i], ['무신사', /musinsa|무신사/i], ['알리익스프레스', /aliexpress|알리익스프레스/i],
@@ -126,6 +126,24 @@
     return out.sort((a, b) => a.daysLeft - b.daysLeft);
   }
 
-  const api = { parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
+  /** 쿠팡·네이버페이 등 '주문목록' 화면 텍스트 → orders[]. 날짜 줄 아래 상품명+가격 줄을 묶음 */
+  function parseOrderList(text, mall) {
+    const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean), out = [];
+    let date = null;
+    const skip = /주문상세|배송조회|교환|반품|리뷰|장바구니|재구매|구매확정|문의|판매자|도착|배송완료|결제완료|취소|더보기|선물|^\d+개$|원$/;
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      const dm = l.match(/^(20\d{2})[.\-\/]\s*(\d{1,2})[.\-\/]\s*(\d{1,2})\.?\s*(주문|결제)?/);
+      if (dm && l.length < 30) { date = `${dm[1]}-${dm[2].padStart(2, '0')}-${dm[3].padStart(2, '0')}`; continue; }
+      if (!date || l.length < 8 || l.length > 140 || skip.test(l)) continue;
+      for (let k = 1; k <= 3 && lines[i + k]; k++) {
+        const pm = lines[i + k].replace(/\s/g, '').match(/^([0-9,]+)원(?:·|\/)?(\d+)?개?$/);
+        if (pm) { out.push({ name: clean(l), price: +pm[1].replace(/,/g, ''), qty: +(pm[2] || 1), mall, date, source: 'orderlist' }); i += k; break; }
+      }
+    }
+    return out;
+  }
+
+  const api = { parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
   if (typeof module !== 'undefined') module.exports = api; else root.LetsBuy = api;
 })(typeof self !== 'undefined' ? self : this);

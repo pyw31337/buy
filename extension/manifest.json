@@ -1,15 +1,66 @@
 {
   "manifest_version": 3,
   "name": "렛츠바이 수집기",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "로그인된 네이버 메일에서 주문 메일을 찾아 내 브라우저에만 저장하고, 재구매 품목 가격을 하루 한 번 기록합니다.",
-  "permissions": ["storage", "alarms"],
-  "host_permissions": ["https://mail.naver.com/*", "https://search.danawa.com/*"],
-  "background": { "service_worker": "background.js" },
-  "action": { "default_popup": "popup.html", "default_title": "렛츠바이" },
-  "icons": { "128": "icons/icon128.png" },
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://mail.naver.com/*",
+    "https://search.danawa.com/*",
+    "https://www.enuri.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "렛츠바이"
+  },
+  "icons": {
+    "128": "icons/icon128.png"
+  },
   "content_scripts": [
-    { "matches": ["https://mail.naver.com/*"], "js": ["core.js", "naver-mail.js"], "run_at": "document_idle" },
-    { "matches": ["https://pyw31337.github.io/buy/*", "http://localhost/*", "http://127.0.0.1/*"], "js": ["bridge.js"], "run_at": "document_idle" }
+    {
+      "matches": [
+        "https://mail.naver.com/*"
+      ],
+      "js": [
+        "core.js",
+        "diag.js",
+        "naver-mail.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://mc.coupang.com/*",
+        "https://my.coupang.com/*",
+        "https://www.coupang.com/my/*",
+        "https://order.pay.naver.com/*",
+        "https://pay.naver.com/*"
+      ],
+      "js": [
+        "core.js",
+        "diag.js",
+        "order-list.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://pyw31337.github.io/buy/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
+      "run_at": "document_idle"
+    }
   ]
 }
