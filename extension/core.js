@@ -97,7 +97,7 @@
   function analyze(orders, today, aliases) {
     today = today || new Date().toISOString().slice(0, 10);
     const out = [];
-    for (const { key, list } of group(orders, aliases)) {
+    for (const { key, list, alias, forced } of group(orders, aliases)) {
       list.sort((a, b) => a.date < b.date ? -1 : 1);
       const dates = [...new Set(list.map(o => o.date))].sort();
       if (dates.length < 2) continue;
@@ -121,7 +121,7 @@
       const dLeft = day(nextDate) - day(today);
       const prices = list.filter(o => o.price).map(o => ({ date: o.date, price: Math.round(o.price / (o.qty || 1)), mall: o.mall }));
       const status = dLeft < 0 ? '지금 살 때' : dLeft <= 14 ? '곧 필요' : '여유';
-      out.push({ key, name: list[list.length - 1].name, count: dates.length, dates, gaps, avgGap: Math.round(avg), cv: +cv.toFixed(2), type, confidence: +confidence.toFixed(2), last, nextDate, daysLeft: dLeft, status, prices, malls: [...new Set(list.map(o => o.mall))] });
+      out.push({ key, name: forced ? alias : list[list.length - 1].name, count: dates.length, dates, gaps, avgGap: Math.round(avg), cv: +cv.toFixed(2), type, confidence: +confidence.toFixed(2), last, nextDate, daysLeft: dLeft, status, prices, malls: [...new Set(list.map(o => o.mall))], names: [...new Set(list.map(o => o.name))] });
     }
     return out.sort((a, b) => a.daysLeft - b.daysLeft);
   }
