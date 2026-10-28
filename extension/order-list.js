@@ -7,9 +7,10 @@
   b.onclick = () => {
     const r = LetsBuy.parseOrderList(document.body.innerText, mall);
     diag('orderlist', r.length > 0, `${mall} items=${r.length}`);
-    if (!r.length) { b.textContent = '주문을 못 찾았어요 · 주문목록 화면인지 확인'; return; }
-    chrome.runtime.sendMessage({ type: 'orders', orders: r });
-    b.textContent = `${r.length}개 담았어요 · 아래로 더 내리고 다시 눌러도 돼요`;
+    if (!r.length) { b.textContent = '주문을 못 찾았어요'; return; }
+    chrome.runtime.sendMessage({ type: 'orders', orders: r, done: true });
+    b.textContent = `${r.length}개 담음`;
   };
   document.body.appendChild(b);
+  chrome.runtime.onMessage.addListener((m, _s, reply) => { if (m.type === 'collect') { b.click(); reply({ ok: true }); } });
 })();

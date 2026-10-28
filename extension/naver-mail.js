@@ -1,7 +1,7 @@
 /* 네이버 메일 페이지 안에서만 실행. 로그인 세션을 그대로 쓰고, 비밀번호는 다루지 않습니다. */
 const QUERIES = ['주문', '결제', '배송', '구매', '쿠팡', '네이버페이', 'G마켓', '옥션', '11번가', 'SSG', '컬리'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const say = text => chrome.runtime.sendMessage({ type: 'progress', text }).catch(() => {});
+const say = text => { lbToast(text); chrome.runtime.sendMessage({ type: 'progress', text }).catch(() => {}); };
 let stopFlag = false;
 
 function toText(html) { const d = document.createElement('div'); d.innerHTML = String(html || '').replace(/<(br|\/p|\/tr|\/div|\/li|\/td|\/th|\/h\d)[^>]*>/gi, '\n').replace(/<(td|th)[^>]*>/gi, ' | '); d.querySelectorAll('script,style').forEach(x => x.remove()); return d.textContent || ''; }
@@ -54,7 +54,7 @@ async function strategyApi() {
         } catch (e) { if (++readFail <= 5) diag('api-read', false, e.message); }
         await sleep(200);
       }
-      say(`"${q}" 검색 ${page}쪽 · 지금까지 상품 ${orders.length}개`);
+      say(`렛츠바이 수집 중 · 상품 ${orders.length}개`);
       if (old) break;
     }
   }
@@ -78,16 +78,19 @@ function readOpenMail() {
   return r;
 }
 
+let running = false;
+async function collectAll() {
+  if (running) return; running = true; stopFlag = false;
+  say('렛츠바이 수집 시작');
+  let orders = [];
+  try { orders = await strategyApi(); }
+  catch (e) { diag('collect', false, e.message); orders = readOpenMail(); if (!orders.length) { lbToast('자동 수집이 막혔어요 · 주문 메일을 열고 다시 눌러 주세요', true); running = false; chrome.runtime.sendMessage({ type: 'done', count: 0, failed: true }); return; } }
+  chrome.runtime.sendMessage({ type: 'orders', orders, done: true });
+  lbToast(`완료 · 상품 ${orders.length}개`, true); running = false;
+}
 chrome.runtime.onMessage.addListener((msg, _s, reply) => {
-  if (msg.type === 'collect') {
-    stopFlag = false;
-    strategyApi()
-      .then(o => chrome.runtime.sendMessage({ type: 'orders', orders: o, mode: 'auto' }))
-      .catch(e => { diag('collect', false, e.message); chrome.runtime.sendMessage({ type: 'error', text: `자동 수집 실패: ${e.message}. 주문 메일을 하나 열고 "지금 열린 메일 담기"를 눌러 주세요. 문제가 계속되면 "진단 정보 내보내기" 파일을 보내 주세요.` }); });
-    reply({ ok: true });
-  }
-  if (msg.type === 'stop') { stopFlag = true; reply({ ok: true }); }
+  if (msg.type === 'collect') { collectAll(); reply({ ok: true }); }
   if (msg.type === 'readOpen') reply({ orders: readOpenMail() });
   return true;
 });
-diag('mail-page', true, 'content script loaded');
+diag('mail-page', true, 'naver');

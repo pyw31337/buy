@@ -11,8 +11,27 @@ chrome.alarms.onAlarm.addListener(async a => {
   const { pricedAt } = await chrome.storage.local.get('pricedAt');
   if (pricedAt !== todayStr()) { await collectPrices(); await notify(); }
 });
+// 아이콘 클릭(또는 Alt+Shift+L) 한 번 = 지금 탭에서 전부 수집
+const WEB = 'https://pyw31337.github.io/buy/';
+const COLLECTABLE = /^https:\/\/(mail\.naver\.com|mail\.google\.com|mc\.coupang\.com|my\.coupang\.com|www\.coupang\.com\/my|order\.pay\.naver\.com|pay\.naver\.com)/;
+const badge = (text, color = '#FF5A36') => { chrome.action.setBadgeBackgroundColor({ color }); chrome.action.setBadgeText({ text: String(text) }); };
+chrome.action.onClicked.addListener(async tab => {
+  if (!COLLECTABLE.test(tab.url || '')) { chrome.tabs.create({ url: WEB }); return; }
+  badge('…');
+  chrome.tabs.sendMessage(tab.id, { type: 'collect' }, () => {
+    if (chrome.runtime.lastError) { chrome.tabs.reload(tab.id); badge('↻', '#9A9AA3'); diag('click', false, 'content script missing, reloaded'); }
+  });
+});
 chrome.runtime.onMessage.addListener((m, _s, reply) => {
-  if (m.type === 'orders') saveOrders(m.orders).then(n => chrome.runtime.sendMessage({ type: 'saved', total: n }).catch(() => {}));
+  if (m.type === 'progress') { const n = (m.text.match(/(\d+)개/) || [])[1]; if (n) badge(n); }
+  if (m.type === 'done' && m.failed) badge('!', '#C8321E');
+  if (m.type === 'orders') saveOrders(m.orders).then(async n => {
+    if (!m.done) return;
+    badge('✓', '#1F9D63'); setTimeout(() => badge(''), 8000);
+    const [t] = await chrome.tabs.query({ url: WEB + '*' });
+    if (t) { chrome.tabs.update(t.id, { active: true }); chrome.tabs.reload(t.id); } else chrome.tabs.create({ url: WEB });
+    collectPrices().then(notify); // 가격은 뒤에서 조용히
+  });
   if (m.type === 'pricesNow') { collectPrices().then(r => notify().then(() => reply(r))); return true; }
   if (m.type === 'testNotify') { show('test', '렛츠바이 알림 테스트', '알림이 잘 보이면 준비 완료예요.'); reply({}); }
 });

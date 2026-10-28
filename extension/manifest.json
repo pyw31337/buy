@@ -1,24 +1,25 @@
 {
   "manifest_version": 3,
   "name": "렛츠바이 수집기",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "로그인된 네이버 메일에서 주문 메일을 찾아 내 브라우저에만 저장하고, 재구매 품목 가격을 하루 한 번 기록합니다.",
   "permissions": [
     "storage",
     "alarms",
-    "notifications"
+    "notifications",
+    "tabs"
   ],
   "host_permissions": [
     "https://mail.naver.com/*",
     "https://search.danawa.com/*",
-    "https://www.enuri.com/*"
+    "https://www.enuri.com/*",
+    "https://mail.google.com/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html",
-    "default_title": "렛츠바이"
+    "default_title": "렛츠바이 — 클릭하면 메일에서 구매내역 수집"
   },
   "icons": {
     "128": "icons/icon128.png"
@@ -31,10 +32,23 @@
       "js": [
         "core.js",
         "diag.js",
+        "toast.js",
         "naver-mail.js"
       ],
       "run_at": "document_idle",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "https://mail.google.com/*"
+      ],
+      "js": [
+        "core.js",
+        "diag.js",
+        "toast.js",
+        "gmail.js"
+      ],
+      "run_at": "document_idle"
     },
     {
       "matches": [
@@ -47,6 +61,7 @@
       "js": [
         "core.js",
         "diag.js",
+        "toast.js",
         "order-list.js"
       ],
       "run_at": "document_idle"
@@ -62,5 +77,13 @@
       ],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+L"
+      },
+      "description": "구매내역 수집"
+    }
+  }
 }

@@ -1,41 +1,44 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>렛츠바이 — 다시 살 때를 알려주는 구매 비서</title>
-<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<title>렛츠바이</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="style.css"></head>
 <body>
 <header class="top">
   <div class="brand"><span class="logo">L</span><b>렛츠바이</b></div>
-  <nav id="tabs"><button data-tab="home" class="on">추천</button><button data-tab="items">재구매 품목</button><button data-tab="import">데이터 가져오기</button></nav>
+  <nav id="tabs"><button data-tab="home" class="on">추천</button><button data-tab="items">품목</button></nav>
   <div class="mode" id="mode"></div>
 </header>
 <main>
   <section id="home" class="tab on">
-    <div id="onboard" class="onboard"><p class="eyebrow">처음 오셨네요</p><h1>자주 사는 물건,<br>다시 살 때를 알려드릴게요</h1>
-      <ol class="obsteps"><li><b>주문 모으기</b><span>확장이 로그인된 네이버 메일에서 최근 2년 주문메일을 찾아요</span></li><li><b>주기 읽기</b><span>두 번 이상 산 물건의 간격과 시즌을 계산해요</span></li><li><b>가격 지켜보기</b><span>매일 한 번 최저가를 기록하고 쌀 때 알려드려요</span></li></ol>
-      <p class="sub">모든 데이터는 이 브라우저에만 저장돼요. 비밀번호는 묻지 않아요.</p>
-      <div class="row"><button class="btn" id="obStart">내 데이터로 시작하기</button><button class="btn ghost" id="obDemo">데모로 둘러보기</button></div></div>
-    <div class="hero"><div><p class="eyebrow" id="today"></p><h1 id="headline">다시 살 때가 된 물건</h1><p class="sub" id="subline"></p></div>
-      <div class="stats" id="stats"></div></div>
-    <h2 class="sec">지금 살 때 · 곧 필요</h2><div class="cards" id="due"></div>
-    <h2 class="sec">시즌 품목</h2><div class="cards" id="season"></div>
-  </section>
-  <section id="items" class="tab">
-    <div class="toolbar"><input id="q" placeholder="품목 검색"><div class="seg" id="filter"><button data-f="all" class="on">전체</button><button data-f="주기">주기</button><button data-f="시즌">시즌</button><button data-f="기타">비정기</button></div></div>
-    <div class="list" id="list"></div>
-  </section>
-  <section id="import" class="tab">
-    <h1>데이터 가져오기</h1><p class="sub">모든 데이터는 이 브라우저 안에만 저장됩니다. 서버로 보내지 않아요.</p>
-    <div class="grid2">
-      <div class="panel"><h3>1. 크롬 확장으로 네이버 메일 가져오기</h3><p>확장을 설치하고 네이버 메일에 로그인한 뒤, 확장 아이콘에서 "주문메일 수집"을 누르세요. 수집이 끝나면 이 페이지가 자동으로 데이터를 받아옵니다.</p><p id="extState" class="pill">확장 연결 확인 중…</p><button id="pullExt" class="btn">확장에서 다시 불러오기</button></div>
-      <div class="panel"><h3>2. 주문 메일 본문 붙여넣기</h3><p>메일 하나를 열어 전체 선택 후 복사해 붙여넣어도 됩니다.</p><input id="pSubject" placeholder="메일 제목 (예: [쿠팡] 주문이 완료되었습니다)"><input id="pDate" type="date"><textarea id="pBody" rows="6" placeholder="메일 본문"></textarea><button id="addPaste" class="btn">분석해서 추가</button><p id="pasteMsg" class="hint"></p></div>
-      <div class="panel"><h3>3. 파일로 옮기기</h3><p>확장에서 내보낸 JSON을 올리거나, 지금 데이터를 백업하세요.</p><input type="file" id="file" accept=".json"><div class="row"><button id="export" class="btn ghost">백업 내려받기</button><button id="reset" class="btn ghost danger">내 데이터 지우기</button></div></div>
-      <div class="panel"><h3>로컬 AI로 품목 정리 (선택)</h3><p>내 컴퓨터의 Ollama로 비슷한 상품명을 묶어요. 없어도 기본 묶기는 동작해요. Ollama 실행 시 <code>OLLAMA_ORIGINS=https://pyw31337.github.io</code> 설정이 필요해요.</p><input id="aiModel" placeholder="모델 이름 (기본 qwen2.5:3b)"><div class="row"><button class="btn" id="aiRun">AI로 정리하기</button><button class="btn ghost" id="aiReset">정리 되돌리기</button></div><p id="aiMsg" class="hint"></p></div>
-      <div class="panel"><h3>문제가 있을 때</h3><p>진단 파일에는 단계별 성공·실패와 개수만 들어가요. 메일 내용과 상품명은 빠져요.</p><button class="btn ghost" id="diagWeb">진단 정보 내려받기</button></div>
-      <div class="panel"><h3>데모 모드</h3><p>가상 구매내역으로 화면을 미리 볼 수 있어요. 내 데이터가 생기면 자동으로 꺼집니다.</p><button id="demo" class="btn ghost">데모 데이터 보기</button></div>
+    <div id="start" class="start">
+      <h1>메일 속 구매내역,<br>클릭 한 번에</h1>
+      <a class="cta" href="letsbuy-extension.zip" download>확장 받기</a>
+      <ol class="icons">
+        <li><span class="ic">⬇</span><b>받아서 압축 풀기</b></li>
+        <li><span class="ic">⚙</span><b>확장 관리 화면에 끌어놓기</b></li>
+        <li><span class="ic">✉</span><b>메일에서 <span class="logo sm">L</span> 클릭</b></li>
+      </ol>
+      <button class="link" id="demo">데모 보기</button>
+    </div>
+    <div id="results">
+      <div class="hero"><div><p class="eyebrow" id="today"></p><h1 id="headline"></h1></div><div class="stats" id="stats"></div></div>
+      <div class="cards" id="due"></div>
+      <h2 class="sec" id="seasonH">시즌</h2><div class="cards" id="season"></div>
     </div>
   </section>
+  <section id="items" class="tab">
+    <div class="toolbar"><input id="q" placeholder="검색"><div class="seg" id="filter"><button data-f="all" class="on">전체</button><button data-f="주기">주기</button><button data-f="시즌">시즌</button><button data-f="기타">비정기</button></div></div>
+    <div class="list" id="list"></div>
+  </section>
+  <details class="adv"><summary>고급</summary>
+    <div class="advgrid">
+      <div><b>메일 붙여넣기</b><input id="pSubject" placeholder="제목"><input id="pDate" type="date"><textarea id="pBody" rows="4" placeholder="본문"></textarea><button id="addPaste" class="btn sm">추가</button><p id="pasteMsg" class="hint"></p></div>
+      <div><b>파일</b><input type="file" id="file" accept=".json"><div class="row"><button id="export" class="btn sm ghost">백업</button><button id="reset" class="btn sm ghost danger">초기화</button></div></div>
+      <div><b>로컬 AI (Ollama)</b><input id="aiModel" placeholder="qwen2.5:3b"><div class="row"><button class="btn sm" id="aiRun">정리</button><button class="btn sm ghost" id="aiReset">되돌리기</button></div><p id="aiMsg" class="hint"></p></div>
+      <div><b>상태</b><p id="extState" class="hint">확장 확인 중</p><div class="row"><button id="pullExt" class="btn sm ghost">다시 불러오기</button><button class="btn sm ghost" id="diagWeb">진단 파일</button></div></div>
+    </div>
+  </details>
 </main>
 <div id="toast" class="toast"></div>
 <div id="sheet" class="sheet"><div class="sheet-body" id="sheetBody"></div></div>
