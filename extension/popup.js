@@ -1,0 +1,10 @@
+const s = t => document.getElementById('s').textContent = t;
+const tab = async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+const onMail = t => t && /mail\.naver\.com/.test(t.url || '');
+chrome.storage.local.get('orders', d => s(`저장된 상품 ${(d.orders || []).length}개`));
+document.getElementById('collect').onclick = async () => { const t = await tab(); if (!onMail(t)) return s('먼저 mail.naver.com 탭을 열어 주세요.'); s('수집 시작… 창을 닫아도 계속됩니다.'); chrome.tabs.sendMessage(t.id, { type: 'collect' }); };
+document.getElementById('one').onclick = async () => { const t = await tab(); if (!onMail(t)) return s('네이버 메일에서 주문 메일을 열어 주세요.'); chrome.tabs.sendMessage(t.id, { type: 'readOpen' }, r => { const o = (r && r.orders) || []; if (!o.length) return s('이 메일에서 주문 상품을 찾지 못했어요.'); chrome.runtime.sendMessage({ type: 'orders', orders: o }); s(`${o.length}개 담음: ${o.map(x => x.name).join(', ')}`); }); };
+document.getElementById('price').onclick = () => { s('다나와에서 가격 확인 중…'); chrome.runtime.sendMessage({ type: 'pricesNow' }, r => s(`가격 기록 ${r.ok}/${r.total} 품목`)); };
+document.getElementById('open').onclick = () => chrome.tabs.create({ url: 'https://pyw31337.github.io/buy/' });
+document.getElementById('dl').onclick = () => chrome.storage.local.get(['orders', 'prices'], d => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(d)], { type: 'application/json' })); a.download = 'letsbuy-export.json'; a.click(); });
+chrome.runtime.onMessage.addListener(m => { if (m.type === 'progress' || m.type === 'error') s(m.text); if (m.type === 'saved') s(`완료 · 저장된 상품 ${m.total}개`); });

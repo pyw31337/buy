@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>렛츠바이 — 다시 살 때를 알려주는 구매 비서</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="style.css"></head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">L</span><b>렛츠바이</b></div>
+  <nav id="tabs"><button data-tab="home" class="on">추천</button><button data-tab="items">재구매 품목</button><button data-tab="import">데이터 가져오기</button></nav>
+  <div class="mode" id="mode"></div>
+</header>
+<main>
+  <section id="home" class="tab on">
+    <div class="hero"><div><p class="eyebrow" id="today"></p><h1 id="headline">다시 살 때가 된 물건</h1><p class="sub" id="subline"></p></div>
+      <div class="stats" id="stats"></div></div>
+    <h2 class="sec">지금 살 때 · 곧 필요</h2><div class="cards" id="due"></div>
+    <h2 class="sec">시즌 품목</h2><div class="cards" id="season"></div>
+  </section>
+  <section id="items" class="tab">
+    <div class="toolbar"><input id="q" placeholder="품목 검색"><div class="seg" id="filter"><button data-f="all" class="on">전체</button><button data-f="주기">주기</button><button data-f="시즌">시즌</button><button data-f="기타">비정기</button></div></div>
+    <div class="list" id="list"></div>
+  </section>
+  <section id="import" class="tab">
+    <h1>데이터 가져오기</h1><p class="sub">모든 데이터는 이 브라우저 안에만 저장됩니다. 서버로 보내지 않아요.</p>
+    <div class="grid2">
+      <div class="panel"><h3>1. 크롬 확장으로 네이버 메일 가져오기</h3><p>확장을 설치하고 네이버 메일에 로그인한 뒤, 확장 아이콘에서 "주문메일 수집"을 누르세요. 수집이 끝나면 이 페이지가 자동으로 데이터를 받아옵니다.</p><p id="extState" class="pill">확장 연결 확인 중…</p><button id="pullExt" class="btn">확장에서 다시 불러오기</button></div>
+      <div class="panel"><h3>2. 주문 메일 본문 붙여넣기</h3><p>메일 하나를 열어 전체 선택 후 복사해 붙여넣어도 됩니다.</p><input id="pSubject" placeholder="메일 제목 (예: [쿠팡] 주문이 완료되었습니다)"><input id="pDate" type="date"><textarea id="pBody" rows="6" placeholder="메일 본문"></textarea><button id="addPaste" class="btn">분석해서 추가</button><p id="pasteMsg" class="hint"></p></div>
+      <div class="panel"><h3>3. 파일로 옮기기</h3><p>확장에서 내보낸 JSON을 올리거나, 지금 데이터를 백업하세요.</p><input type="file" id="file" accept=".json"><div class="row"><button id="export" class="btn ghost">백업 내려받기</button><button id="reset" class="btn ghost danger">내 데이터 지우기</button></div></div>
+      <div class="panel"><h3>데모 모드</h3><p>가상 구매내역으로 화면을 미리 볼 수 있어요. 내 데이터가 생기면 자동으로 꺼집니다.</p><button id="demo" class="btn ghost">데모 데이터 보기</button></div>
+    </div>
+  </section>
+</main>
+<div id="sheet" class="sheet"><div class="sheet-body" id="sheetBody"></div></div>
+<script src="core.js"></script><script src="sample.js"></script><script src="app.js"></script>
+</body></html>
