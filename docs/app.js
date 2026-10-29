@@ -220,6 +220,9 @@
   // 로컬 AI: 확장을 거쳐 부름(웹페이지에서 직접 부르면 Ollama가 403으로 막음). 확장이 없으면 직접 시도
   let oid = 0; const owait = {};
   window.addEventListener('message', e => { if (e.source === window && e.data && e.data.app === 'letsbuy-ext' && e.data.type === 'ollama' && owait[e.data.id]) { owait[e.data.id](e.data); delete owait[e.data.id]; } });
+  // v0.14.1: Ollama는 조용히 확인만. 응답하고 모델이 있을 때만 AI 기능을 드러냄 (없으면 아무것도 안 보임)
+  let aiOK = false;
+  async function probeAI() { if (!extInfo || aiOK) return; const r = await ollama('', '', 'ping'); const ok = !!(r && r.ok && r.models && r.models.length); if (ok !== aiOK) { aiOK = ok; const b = document.getElementById('aiBox'); if (b) b.hidden = !ok; if (cur === 'dash' && window.renderDash) window.renderDash(); } }
   async function ollama(prompt, model, op) {
     if (extInfo) return new Promise(res => { const id = ++oid; owait[id] = res; window.postMessage({ app: 'letsbuy-web', type: 'ollama', id, op, model, prompt }, location.origin); setTimeout(() => { if (owait[id]) { delete owait[id]; res({ ok: false, why: 'old' }); } }, op === 'ping' ? 4000 : 180000); });
     try { const r = await fetch('http://127.0.0.1:11434/api/chat', { method: 'POST', body: JSON.stringify({ model: model || 'qwen2.5:3b', stream: false, format: 'json', messages: [{ role: 'user', content: prompt }] }) }); if (!r.ok) return { ok: false, why: r.status === 403 ? 'origin' : 'http' + r.status }; return { ok: true, content: (await r.json()).message.content }; } catch { return { ok: false, why: 'noext' }; }
@@ -244,7 +247,7 @@
     return `<div class="phbar"><span class="phl">${svg('image', 16)} 사진 <b>${have}/${items.length}</b></span><span class="phm"><i style="width:${run ? Math.round(p.done / (p.total || 1) * 100) : pc}%"></i></span>${run ? `<small>찾는 중 ${p.done}/${p.total}</small>` : `<button class="btn sm" id="fillImg">사진 채우기</button>`}</div>`;
   }
   function bindPhoto(el) { const b = el && el.querySelector('#fillImg'); if (b) b.onclick = () => { if (!extInfo) { toast('확장(v0.12)이 연결되어 있어야 해요'); return; } thumbProg = { running: true, done: 0, total: 1 }; refreshAll(); window.postMessage({ app: 'letsbuy-web', type: 'fillImages', force: true }, location.origin); }; }
-  window.LB_UI = { pastTag, liveTag, photoBar, bindPhoto, imgOf, sharedFill, toast: t => toast(t), saveStore: () => save(), fmt, svg, thumb, esc, mallChip, data, raw, logo, platOf, mallName, ollama, OLLAMA_HELP, store: () => store, isDemo: () => demo,
+  window.LB_UI = { aiOK: () => aiOK, refreshAll: () => refreshAll(), pastTag, liveTag, photoBar, bindPhoto, imgOf, sharedFill, toast: t => toast(t), saveStore: () => save(), fmt, svg, thumb, esc, mallChip, data, raw, logo, platOf, mallName, ollama, OLLAMA_HELP, store: () => store, isDemo: () => demo,
     plat: () => plat, setPlat: p => { plat = plat === p ? null : p; render(); if (window.renderProd) window.renderProd(); if (cur === 'dash' && window.renderDash) window.renderDash(); },
     go: t => go(t), rerender: () => render(),
     openKey: k => { const d = data(), it = LetsBuy.analyze(d.orders, d.today, d.aliases, { all: true }).find(i => i.key === k); if (it) open(it, d); },
@@ -301,7 +304,7 @@
   window.addEventListener('message', e => {
     if (e.source !== window || e.origin !== location.origin || !e.data || e.data.app !== 'letsbuy-ext') return;
     if (e.data.type === 'diag') extLog = e.data.diag;
-    if (e.data.type === 'hello') { extInfo = { version: e.data.version }; $('#extState').textContent = '확장 연결됨'; $('#extState').classList.add('on'); window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*'); }
+    if (e.data.type === 'hello') { extInfo = { version: e.data.version }; setTimeout(probeAI, 300); $('#extState').textContent = '확장 연결됨'; $('#extState').classList.add('on'); window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*'); }
     if (e.data.type === 'thumbProg') { thumbProg = e.data.prog; const el = document.querySelector('.phbar'); if (el) el.outerHTML = photoBar(); bindPhoto(document); }
     if (e.data.type === 'data') { if (e.data.mailStats) store.mailStats = e.data.mailStats; if (e.data.pricedTs) store.pricedTs = e.data.pricedTs; THUMB = {}; for (const [k, v] of Object.entries(e.data.thumbs || {})) THUMB[k] = v.d || v.u; if (e.data.thumbProg) thumbProg = e.data.thumbProg; if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders, e.data.prices, true); $('#extState').textContent = `확장 v${e.data.version} · 주문 ${e.data.orders.length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
     if (e.data.type === 'data') setTimeout(sharedFill, 300);

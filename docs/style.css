@@ -239,3 +239,9 @@ code{font-size:12px;background:#F0EFEB;padding:2px 6px;border-radius:6px;word-br
 @media(max-width:560px){.top .tin{gap:8px}#tabs button{font-size:14px;padding:12px 2px!important}.grail{top:104px}}
 .seg{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.seg button{white-space:nowrap;flex:none}
 @media(max-width:560px){.top .hcta{font-size:13px!important;padding:8px 12px!important;margin-left:auto}.top .hcta span{display:none}.brand b{display:inline!important;font-size:15px}}
+
+/* v0.14.1 수동 분류 */
+.mcat{background:#fff;border-radius:16px;padding:16px 18px;margin:12px 0}.mch{display:flex;align-items:center;gap:8px;margin-bottom:6px}.mch small{color:var(--ink3,#8a8f98);font-size:12px}.mch .link{margin-left:auto;color:var(--ink3,#8a8f98);font-size:12px}
+.mcr{display:grid;grid-template-columns:36px minmax(120px,240px) 1fr;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}.mcr>b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcc{display:flex;flex-wrap:wrap;gap:4px 14px}.mcc button{border:0;background:none;padding:4px 0;font:inherit;font-size:13px;color:var(--ink2);cursor:pointer;border-bottom:1px solid transparent}.mcc button:hover{color:var(--accent);border-bottom-color:var(--accent)}
+@media(max-width:640px){.mcr{grid-template-columns:36px 1fr}.mcc{grid-column:1/-1}}

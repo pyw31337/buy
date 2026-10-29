@@ -43,6 +43,7 @@
     return `<div class="cyc">${rep.map(it => `<div class="cr" data-k="${W('esc')(it.key)}">${W('thumb')(it, 34)}<span class="cn">${W('esc')(it.name)}</span><span class="ctr">${it.dates.filter(d => new Date(d) >= t0).map(d => `<i style="left:${x(d)}%" title="${d}"></i>`).join('')}</span><b>${it.count}회</b></div>`).join('')}
       <div class="cr axis"><span></span><span></span><span class="ctr">${[0, 6, 12, 18, 24].map(k => { const d = new Date(t0); d.setMonth(d.getMonth() + k); return `<em style="left:${k / 24 * 100}%">${String(d.getFullYear()).slice(2)}.${d.getMonth() + 1}</em>`; }).join('')}</span><b></b></div></div>`;
   }
+  let catMore = false;
   function render() {
     const el = document.getElementById('dashBody'); if (!el) return;
     const d = W('data')(), st = W('store')();
@@ -56,7 +57,10 @@
     el.innerHTML = `
       ${window.prodChips ? window.prodChips() : ''}
       ${A.notes.length ? `<div class="notes">${A.notes.map(n => `<button class="note ${n.tone}" ${n.key ? `data-k="${esc(n.key)}"` : n.cat ? `data-cat="${esc(n.cat)}"` : n.mall ? `data-plat="${esc(W('platOf')(n.mall))}"` : n.m ? `data-m="${esc(n.m)}"` : ''}><span class="nl"><span class="ni" style="color:${TN[n.tone]}">${svg(n.icon, 16)}</span>${esc(n.text)}</span><b style="color:${TN[n.tone]}">${esc(n.big)}</b></button>`).join('')}</div>` : ''}
-      ${(() => { const etc = A.items.filter(i => i.cat === '기타' && !st.cats[i.key]); return etc.length ? `<div class="aibar"><span>${svg('package', 16)} 분류 못 한 품목 <b>${etc.length}</b>개</span><button class="btn sm" id="aiCat">${svg('sparkles', 15)} 로컬 AI로 분류</button><button class="btn sm ghost" id="etcList">보기</button><small id="aiCatMsg">내 컴퓨터의 Ollama로 · 데이터는 밖으로 안 나가요</small></div>` : ''; })()}
+      ${(() => { const etc = A.items.filter(i => i.cat === '기타' && !st.cats[i.key]); if (!etc.length) return ''; const MAINS = I.MAIN ? I.MAIN.filter(m => m !== '기타') : ['식품','영양제','생활용품','육아','반려동물','뷰티','주방','패션','캠핑·레저','가전·디지털']; const show = etc.slice(0, catMore ? 30 : 4);
+        return `<section class="mcat"><div class="mch"><b>분류 못 한 품목</b><i class="n">${etc.length}</i><small>눌러서 바로 분류</small>${W('aiOK') && W('aiOK')() ? `<button class="link" id="aiCat">${svg('sparkles', 14)} AI 분류</button>` : ''}</div><small id="aiCatMsg"></small>
+        ${show.map(it => `<div class="mcr">${W('thumb')(it, 36)}<b>${esc(it.name)}</b><div class="mcc">${MAINS.map(m => `<button data-mc="${esc(it.key)}" data-m2="${esc(m)}">${esc(m)}</button>`).join('')}</div></div>`).join('')}
+        ${etc.length > show.length ? `<button class="link" id="catMore">더보기 +${Math.min(26, etc.length - show.length)}</button>` : ''}</section>`; })()}
       <div class="kpis">${kpi.map(([ic, l, v, s], i) => `<div class="kpi" ${i < 2 ? `data-m="${A.monthly[A.monthly.length - 1].m}"` : 'data-go="prod"'}><span class="kl"><span class="ki">${svg(ic, 16)}</span>${l}</span><b>${v}</b><small>${s}</small></div>`).join('')}</div>
       <div class="dg">
         <section class="pn wide"><h3>${svg('chart', 18)} 월별 지출 <small>${peak ? `가장 많이 쓴 달 ${peak.m.replace('-', '.')} · ${won(peak.spend)}` : ''}</small></h3>${bars(A.monthly)}</section>
@@ -76,6 +80,8 @@
     el.querySelectorAll('[data-go]').forEach(n => n.onclick = () => W('go')(n.dataset.go));
     el.querySelectorAll('[data-m]').forEach(n => n.onclick = () => month(n.dataset.m));
     const ai = document.getElementById('aiCat'); if (ai) ai.onclick = () => aiCats(A.items.filter(i => i.cat === '기타' && !st.cats[i.key]));
+    el.querySelectorAll('[data-mc]').forEach(b => b.onclick = () => { st.cats[b.dataset.mc] = b.dataset.m2 + '/' + b.dataset.m2; W('saveStore')(); W('toast')(`${b.dataset.m2}(으)로 분류했어요`); W('refreshAll')(); render(); });
+    const cm = document.getElementById('catMore'); if (cm) cm.onclick = () => { catMore = true; render(); };
     const el2 = document.getElementById('etcList'); if (el2) el2.onclick = () => W('filterCat')('기타');
     el.querySelectorAll('[data-cat]').forEach(n => n.onclick = () => window.prodFilterCat ? window.prodFilterCat(n.dataset.cat) : W('filterCat')(n.dataset.cat));
   }
