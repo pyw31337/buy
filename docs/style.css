@@ -214,3 +214,28 @@ code{font-size:12px;background:#F0EFEB;padding:2px 6px;border-radius:6px;word-br
 .blogo{width:32px;height:32px;border-radius:9px;display:block}
 
 /* v0.14 */.ptl{display:flex;flex-direction:column;align-items:flex-start;gap:8px}.ptl .tg{margin:0}.vbasis{margin-left:8px;color:var(--mut,#8a8f98);font-size:12px}
+
+/* v0.14 메뉴·필 축소 */
+.top{display:block;padding:0;gap:0}
+.top .tin{max-width:1120px;margin:0 auto;padding:0 clamp(16px,4vw,48px);display:flex;align-items:center;gap:16px;height:60px;flex-wrap:nowrap}
+.top .tnav{height:auto;border-top:1px solid var(--line)}
+#tabs{display:grid!important;grid-auto-flow:column;grid-auto-columns:1fr;width:100%;gap:0!important;flex-wrap:nowrap}
+#tabs button[hidden]{display:none}
+#tabs button{border-radius:0!important;background:none!important;color:var(--ink3,#8a8f98);padding:14px 4px!important;font-size:15px;font-weight:700;text-align:center;position:relative}
+#tabs button.on{color:var(--ink)}#tabs button.on::after{content:"";position:absolute;left:18%;right:18%;bottom:-1px;height:3px;border-radius:3px 3px 0 0;background:var(--accent)}
+#tabs button:hover{color:var(--ink)}
+.grail{top:110px}
+/* 칩·탭 → 밑줄·텍스트 */
+.plats{gap:18px;border-bottom:1px solid var(--line);padding:0;margin-bottom:18px}
+.plc{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:10px 0!important;position:relative;color:var(--ink3,#8a8f98)}
+.plc.on{color:var(--ink)!important}.plc.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--ink)}
+.ctabs{gap:16px}.ct{background:none!important;border-radius:0!important;padding:6px 0!important;color:var(--ink3,#8a8f98)!important;border-bottom:2px solid transparent!important}
+.ct.on{color:var(--ink)!important;border-bottom-color:var(--ink)!important}.ct.on .n{background:var(--ink);color:#fff}
+.seg{background:none;padding:0;gap:18px;border-radius:0;border-bottom:1px solid var(--line)}.seg button{border-radius:0!important;background:none!important;padding:10px 0!important;color:var(--ink3,#8a8f98);border-bottom:2px solid transparent;margin-bottom:-1px}
+.seg button.on{color:var(--ink);border-bottom-color:var(--ink);box-shadow:none}.seg .on .n{background:var(--ink);color:#fff}
+.tg{background:none!important;padding:0!important;border-radius:0}
+.vb{border-radius:6px}.catf,.kd,.src,.shr,.tp .badge{border-radius:5px}
+.grail .grp,.grail>*{border-radius:0!important;background:none!important}
+@media(max-width:560px){.top .tin{gap:8px}#tabs button{font-size:14px;padding:12px 2px!important}.grail{top:104px}}
+.seg{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.seg button{white-space:nowrap;flex:none}
+@media(max-width:560px){.top .hcta{font-size:13px!important;padding:8px 12px!important;margin-left:auto}.top .hcta span{display:none}.brand b{display:inline!important;font-size:15px}}
