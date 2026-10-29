@@ -2,6 +2,7 @@
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const KEY = 'letsbuy.v1';
   let store = Object.assign({ orders: [], prices: {}, aliases: {}, onboarded: false }, JSON.parse(localStorage.getItem(KEY) || 'null') || {});
+  store.orders = LetsBuy.dedupe(store.orders); // 예전 해석기가 남긴 잘못된 항목 정리
   let demo = false;
   let filter = 'all';
   const save = () => { localStorage.setItem(KEY, JSON.stringify(store)); window.postMessage({ app: 'letsbuy-web', type: 'aliases', aliases: store.aliases }, location.origin); };
@@ -12,6 +13,38 @@
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const md = d => { const [, m, dd] = d.split('-'); return `${+m}월 ${+dd}일`; };
 
+  // 아이콘 (Lucide 스타일, MIT) — 이미지가 없을 때 카테고리 아이콘
+  const P = {
+    package: '<path d="M16.5 9.4 7.5 4.2"/><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>',
+    droplet: '<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
+    sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
+    coffee: '<path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/>',
+    milk: '<path d="M8 2h8"/><path d="M9 2v2.8a4 4 0 0 1-.7 2.2l-.6.9A4 4 0 0 0 7 10.2V20a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-9.8a4 4 0 0 0-.7-2.3l-.6-.9A4 4 0 0 1 15 4.8V2"/><path d="M7 15a6.5 6.5 0 0 1 10 0"/>',
+    roll: '<path d="M15 12h6"/><path d="M15 6h6"/><path d="m3 13 3.6-9.7a1 1 0 0 1 1.8 0L12 13"/><path d="M3 18h18"/>',
+    wind: '<path d="M12.8 19.6A2 2 0 1 0 14 16H2"/><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"/><path d="M9.8 4.4A2 2 0 1 1 11 8H2"/>',
+    shirt: '<path d="M20.4 3.5 16 2a4 4 0 0 1-8 0L3.6 3.5a2 2 0 0 0-1.3 2.2l.6 3.5a1 1 0 0 0 1 .8H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.2a1 1 0 0 0 1-.8l.6-3.5a2 2 0 0 0-1.4-2.2z"/>',
+    paw: '<circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.8 1.1A3.6 3.6 0 0 0 5 17.5 3.5 3.5 0 0 1 6.5 11 5 5 0 0 1 9 10Z"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    puzzle: '<path d="M19.4 14.9a1 1 0 0 1-.7-.9V13a2.5 2.5 0 1 0 0-5V6a2 2 0 0 0-2-2h-2a2.5 2.5 0 1 0-5 0H7.7A2 2 0 0 0 5.7 6v2.3a2.5 2.5 0 1 1 0 5V16a2 2 0 0 0 2 2h2.3a2.5 2.5 0 1 1 5 0h2.4a2 2 0 0 0 2-2z"/>',
+    mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+    chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/>',
+  };
+  const svg = (k, sz = 24) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${P[k] || P.package}</svg>`;
+  const CAT = [[/휴지|화장지|키친|타월|물티슈|티슈/, 'roll', '#E8F1FF'], [/세제|유연제|락스|세정|샴푸|린스|바디/, 'droplet', '#E6F7F1'], [/제습|습기/, 'droplet', '#EAF4FF'], [/치약|칫솔|가글|면도/, 'sparkles', '#F3EEFF'], [/커피|원두|캡슐|차 |티백/, 'coffee', '#F6EEE6'], [/물|생수|삼다수|우유|두유|음료|주스/, 'milk', '#E8F6FB'], [/필터|공기|청정/, 'wind', '#EEF2F6'], [/양말|속옷|티셔츠|의류/, 'shirt', '#FFF0EA'], [/사료|간식|고양이|강아지|모래/, 'paw', '#FFF5E0']];
+  const catOf = n => (CAT.find(([re]) => re.test(n)) || [0, 'package', '#F1F0EC']);
+  const thumb = (it, sz = 64) => it.img ? `<img class="th" style="width:${sz}px;height:${sz}px" src="${esc(it.img)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<span class=&quot;th ico&quot; style=&quot;width:${sz}px;height:${sz}px&quot;>${svg('package').replace(/"/g, '&quot;')}</span>'">` : (([, k, bg]) => `<span class="th ico" style="width:${sz}px;height:${sz}px;background:${bg}">${svg(k, sz * .45)}</span>`)(catOf(it.name));
+  const MC = { '쿠팡': '#E3262D', '네이버페이': '#03C75A', 'G마켓': '#2E7D32', '옥션': '#D32F2F', '11번가': '#FF0038', 'SSG': '#E2007E', '마켓컬리': '#5F0080', '컬리': '#5F0080', '오늘의집': '#35C5F0', '무신사': '#000', '알리익스프레스': '#E43225' };
+  const mallChip = m => `<span class="mall" style="--c:${MC[m] || '#77777F'}">${esc(m === '네이버페이' ? 'N pay' : m)}</span>`;
+  function ring(it, sz = 58) {
+    const r = sz / 2 - 5, C = 2 * Math.PI * r, f = it.type === '시즌' ? 1 - Math.max(0, it.daysLeft) / 365 : 1 - it.daysLeft / (it.avgGap || 1);
+    const p = Math.max(0.03, Math.min(1, f)), col = it.daysLeft < 0 ? '#FF5A36' : it.daysLeft <= 14 ? '#FF9F43' : '#1F9D63';
+    const lbl = it.daysLeft < 0 ? `+${-it.daysLeft}일` : it.daysLeft === 0 ? '오늘' : `D-${it.daysLeft}`;
+    return `<svg class="ring" width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}"><circle cx="${sz / 2}" cy="${sz / 2}" r="${r}" fill="none" stroke="#EEECE7" stroke-width="6"/><circle cx="${sz / 2}" cy="${sz / 2}" r="${r}" fill="none" stroke="${col}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${C * p} ${C}" transform="rotate(-90 ${sz / 2} ${sz / 2})"/><text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-size="${sz / 4.3}" font-weight="800" fill="${col}">${lbl}</text></svg>`;
+  }
+  function timeline(it) {
+    const all = [...it.dates, it.nextDate], d0 = new Date(all[0]), d1 = new Date(all[all.length - 1]), W = 640, x = d => 20 + (W - 40) * (new Date(d) - d0) / ((d1 - d0) || 1);
+    return `<svg class="tline" viewBox="0 0 ${W} 64"><line x1="20" x2="${W - 20}" y1="28" y2="28" stroke="#E6E4DF" stroke-width="2"/>${it.dates.map(d => `<circle cx="${x(d)}" cy="28" r="7" fill="#16161A"/><text x="${x(d)}" y="56" font-size="11" text-anchor="middle" fill="#77777F">${d.slice(2, 7).replace('-', '.')}</text>`).join('')}<circle cx="${x(it.nextDate)}" cy="28" r="8" fill="#fff" stroke="#FF5A36" stroke-width="2.5" stroke-dasharray="3 2"/><text x="${x(it.nextDate)}" y="14" font-size="11" font-weight="700" text-anchor="middle" fill="#FF5A36">다음</text></svg>`;
+  }
   function pricesFor(it, d) {
     if (d.prices[it.key]) return d.prices[it.key];
     const k = Object.keys(d.prices).find(k => it.name.includes(k));
@@ -35,12 +68,10 @@
     return { now, min, avg: Math.round(avg), paid: paid && Math.round(paid), v, series: p };
   }
   function card(it, d) {
-    const pv = priceVerdict(it, d);
-    const pct = it.type === '시즌' ? 0 : Math.max(4, Math.min(100, 100 * (1 - it.daysLeft / it.avgGap)));
-    return `<div class="card" data-k="${esc(it.key)}">${tagOf(it)}<div class="name">${esc(it.name)}</div>
-      <div class="meta">${it.count}번 구매 · ${it.type === '시즌' ? '매년 이맘때' : `평균 ${it.avgGap}일마다`}</div>
-      ${it.type !== '시즌' ? `<div class="bar"><i style="width:${pct}%"></i></div><div class="meta">${dueText(it)} · 다음 ${md(it.nextDate)}</div>` : `<div class="meta">다음 시즌 ${it.nextDate.slice(0, 7).replace('-', '년 ')}월</div>`}
-      ${pv ? `<div><span class="big">${fmt(pv.now)}</span> <span class="meta">${pv.v}</span></div>` : ''}</div>`;
+    const pv = priceVerdict(it, d), last = it.prices.length ? it.prices[it.prices.length - 1].price : null;
+    return `<div class="card v4" data-k="${esc(it.key)}"><div class="ctop">${thumb(it)}${ring(it)}</div>
+      <div class="name">${esc(it.name)}</div>
+      <div class="cbot"><span class="chips">${it.malls.map(mallChip).join('')}<span class="cnt">${svg('chart', 13)}${it.count}회 · ${it.type === '시즌' ? '매년' : it.avgGap + '일'}</span></span>${pv ? `<b class="pr">${fmt(pv.now)}</b>` : last ? `<b class="pr dim">${fmt(last)}</b>` : ''}</div></div>`;
   }
   function render() {
     const d = data(), items = LetsBuy.analyze(d.orders, d.today, d.aliases);
@@ -57,7 +88,7 @@
     $('#season').innerHTML = season.map(i => card(i, d)).join(''); $('#seasonH').style.display = season.length ? '' : 'none';
     const q = $('#q').value.trim();
     const rows = items.filter(i => (filter === 'all' || (filter === '기타' ? !/주기|시즌/.test(i.type) : i.type.startsWith(filter))) && (!q || i.name.includes(q)));
-    $('#list').innerHTML = rows.map(i => `<div class="lrow" data-k="${esc(i.key)}"><div><b>${esc(i.name)}</b><div class="meta">${i.malls.join(' · ')} · 마지막 ${i.last}</div></div><div class="meta">${i.count}회 · ${i.avgGap}일</div>${tagOf(i)}</div>`).join('') || '<div class="empty">없어요</div>';
+    $('#list').innerHTML = rows.map(i => `<div class="lrow" data-k="${esc(i.key)}">${thumb(i, 44)}<div class="lmain"><b>${esc(i.name)}</b><div class="chips">${i.malls.map(mallChip).join('')}<span class="cnt">${i.count}회 · ${i.avgGap}일</span></div></div>${ring(i, 44)}</div>`).join('') || '<div class="empty">없어요</div>';
     $$('[data-k]').forEach(el => el.onclick = () => open(items.find(i => i.key === el.dataset.k), d));
   }
   function chart(series, paid) {
@@ -72,11 +103,9 @@
   }
   function open(it, d) {
     const pv = priceVerdict(it, d), q = encodeURIComponent(it.name.split(' ').slice(0, 4).join(' '));
-    $('#sheetBody').innerHTML = `<button class="x" id="x">×</button>${tagOf(it)}<h2 style="margin:10px 0 4px">${esc(it.name)}</h2>
-      <p class="meta">${it.count}번 · ${it.type === '시즌' ? '매년 ' + (+it.nextDate.slice(5, 7)) + '월' : it.avgGap + '일마다'} · 다음 ${it.nextDate}</p>
-      <div class="tl">${it.dates.map((dt, i) => `<span>${dt}${i ? ` · +${it.gaps[i - 1]}일` : ''}</span>`).join('')}</div>
-      ${it.prices.length ? `<p class="meta">내가 낸 가격: ${it.prices.map(p => `${fmt(p.price)}(${p.mall})`).join(', ')}</p>` : ''}
-      <h3>가격 추이</h3>${pv ? chart(pv.series, pv.paid) + `<p class="meta">지금 ${fmt(pv.now)} · 기간 최저 ${fmt(pv.min)} · 평균 ${fmt(pv.avg)} → <b>${pv.v}</b></p>` : '<p class="meta">가격은 매일 자동으로 쌓여요</p>'}
+    $('#sheetBody').innerHTML = `<button class="x" id="x">×</button><div class="shead">${thumb(it, 88)}<div><div class="chips">${it.malls.map(mallChip).join('')}</div><h2>${esc(it.name)}</h2></div>${ring(it, 72)}</div>
+      ${timeline(it)}
+      ${pv ? chart(pv.series, pv.paid) + `<p class="meta">지금 ${fmt(pv.now)} · 기간 최저 ${fmt(pv.min)} · 평균 ${fmt(pv.avg)} → <b>${pv.v}</b></p>` : '<p class="meta">가격은 매일 자동으로 쌓여요</p>'}
       <h3>다른 곳 가격</h3><div class="links"><a target="_blank" rel="noopener" href="https://search.danawa.com/dsearch.php?query=${q}">다나와에서 보기</a><a target="_blank" rel="noopener" href="https://fallcent.com/search?keyword=${q}">폴센트에서 보기</a><a target="_blank" rel="noopener" href="https://search.shopping.naver.com/search/all?query=${q}">네이버쇼핑</a><a target="_blank" rel="noopener" href="https://www.enuri.com/search.jsp?keyword=${q}">에누리</a><a target="_blank" rel="noopener" href="https://www.coupang.com/np/search?q=${q}">쿠팡</a><a target="_blank" rel="noopener" href="https://www.gmarket.co.kr/n/search?keyword=${q}">G마켓</a><a target="_blank" rel="noopener" href="https://search.11st.co.kr/Search.tmall?kwd=${q}">11번가</a></div>
       ${demo ? '' : `<h3>이름 정리</h3><div class="row"><input id="alias" value="${esc(it.name)}" placeholder="이 품목의 대표 이름"><button class="btn ghost" id="saveAlias">저장</button></div>
       <div class="tl">${it.names.map(n => `<span>${esc(n)}</span>`).join('')}</div>`}`;
@@ -87,7 +116,8 @@
   $$('#tabs button').forEach(b => b.onclick = () => { $$('#tabs button,.tab').forEach(e => e.classList.remove('on')); b.classList.add('on'); $('#' + b.dataset.tab).classList.add('on'); });
   $$('#filter button').forEach(b => b.onclick = () => { $$('#filter button').forEach(e => e.classList.remove('on')); b.classList.add('on'); filter = b.dataset.f; render(); });
   $('#q').oninput = render;
-  function merge(orders, prices) {
+  function merge(orders, prices, fromExt) {
+    if (fromExt) store.orders = store.orders.filter(o => o.source === 'paste');
     const seen = new Set(store.orders.map(o => o.date + o.name));
     for (const o of orders || []) if (!seen.has(o.date + o.name)) { store.orders.push(o); seen.add(o.date + o.name); }
     for (const [k, v] of Object.entries(prices || {})) { const m = new Map((store.prices[k] || []).map(p => [p.date, p])); v.forEach(p => m.set(p.date, p)); store.prices[k] = [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1); }
@@ -95,13 +125,14 @@
   }
   $('#addPaste').onclick = () => {
     const r = LetsBuy.parseMail({ subject: $('#pSubject').value, date: $('#pDate').value, body: $('#pBody').value, from: '' });
-    const ok = r.filter(o => o.date);
+    const ok = r.filter(o => o.date).map(o => ({ ...o, source: 'paste' }));
     $('#pasteMsg').textContent = ok.length ? `${ok.length}개 추가` : '못 찾았어요';
     if (ok.length) merge(ok);
   };
   $('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); merge(j.orders, j.prices); toast(`${j.orders?.length || 0}건 불러옴`); } catch { toast('파일을 못 읽었어요'); } };
   $('#export').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(store, null, 1)], { type: 'application/json' })); a.download = 'letsbuy-backup.json'; a.click(); };
   $('#reset').onclick = () => { if (confirm('모두 지울까요?')) { store = { orders: [], prices: {}, aliases: {}, onboarded: true }; save(); demo = false; render(); } };
+  $$('[data-i]').forEach(e => e.innerHTML = svg(e.dataset.i, 26));
   $('#demo').onclick = () => { demo = true; render(); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
   let extInfo = null, extLog = [];
@@ -109,7 +140,7 @@
     if (e.source !== window || e.origin !== location.origin || !e.data || e.data.app !== 'letsbuy-ext') return;
     if (e.data.type === 'diag') extLog = e.data.diag;
     if (e.data.type === 'hello') { extInfo = { version: e.data.version }; $('#extState').textContent = '확장 연결됨'; $('#extState').classList.add('on'); $('.cta').textContent = '메일 탭에서 L 아이콘을 누르세요'; $('.cta').removeAttribute('href'); window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*'); }
-    if (e.data.type === 'data') { merge(e.data.orders, e.data.prices); $('#extState').textContent = `확장 v${e.data.version} · 주문 ${e.data.orders.length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
+    if (e.data.type === 'data') { merge(e.data.orders, e.data.prices, true); $('#extState').textContent = `확장 v${e.data.version} · 주문 ${e.data.orders.length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
   });
   $('#pullExt').onclick = () => window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*');
   setTimeout(() => { if (!$('#extState').classList.contains('on')) $('#extState').textContent = '확장 없음'; }, 1500);

@@ -23,46 +23,93 @@
     return fallback || null;
   }
 
-  // 상품명 후보 추출: "상품명 : xxx", "상품정보 xxx", 또는 "...원" 앞줄
-  function parseItems(text) {
-    const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  // ── 상품명 판정: 약관·안내 문장 걸러내기 ──
+  const BAD = /(교환|반품|환불|판매자|의무|책임|안내|경우|약관|고객센터|문의|규정|정책|동의|개인정보|수신|거부|발송|배송지|배송비|배송|주문번호|주문일|결제|합계|할인|적립|쿠폰|포인트|금액|사유|훼손|분실|유출|부담|요청|가치|감소|청약|철회|소비자|분쟁|보상|기준|법|저작|copyright|all rights|무단|본 메일|이 메일|발신전용|회신|확인하기|바로가기|자세히|클릭|로그인|회원|수량|옵션|스토어|판매처|상점|사업자|대표|이벤트|혜택|광고|구독|주소|연락처|휴대폰|전화|이메일|받는 ?분|수령|도착|예정|영수증|카드|일시불|할부|입금|계좌|무통장|처리|완료|접수|상태|조회|변경|취소|택배|운송장|송장)/i;
+  function isProductName(s) {
+    s = String(s || '').trim();
+    if (s.length < 4 || s.length > 90) return false;
+    if (BAD.test(s)) return false;
+    if (/(다|요|니다|세요|시오|함|음)\s*[.!?]?$|[.!?]$/.test(s)) return false;          // 문장
+    if (/^(의|및|을|를|이|가|은|는|와|과|에|로|으로|또는|단)\s|^[※*\-·•]/.test(s)) return false;   // 조각
+    if (/https?:|www\.|@|\.com|\.co\.kr/i.test(s)) return false;
+    if (!/[가-힣A-Za-z]{2,}/.test(s)) return false;
+    if (/^[\d\s,.:\-\/원개()]+$/.test(s)) return false;
+    if ((s.match(/\s/g) || []).length > 14) return false;
+    return true;
+  }
+  const BAD_IMG = /logo|banner|icon|btn|button|spacer|blank|pixel|track|open\?|1x1|bg_|arrow|bullet|line|footer|header|sns|facebook|kakao|insta|youtube|badge|stamp|_tit|title|common/i;
+
+  // HTML → 순서대로 텍스트 칸/이미지 토큰 (DOM 없이 동작: 확장·웹·Node 공용)
+  function htmlTokens(html) {
+    html = String(html || '').replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ');
+    const out = []; const re = /<img\b[^>]*>|<\/?(td|th|tr|div|p|li|br|h\d|table|span|a|strong|b|font)\b[^>]*>|([^<]+)/gi; let m;
+    let buf = '';
+    const flush = () => { const t = decode(buf).replace(/\s+/g, ' ').trim(); if (t) out.push({ t }); buf = ''; };
+    while ((m = re.exec(html))) {
+      if (m[0].startsWith('<img')) { flush(); const src = (m[0].match(/src\s*=\s*["']([^"']+)/i) || [])[1] || ''; const w = +((m[0].match(/width\s*=\s*["']?(\d+)/i) || [])[1] || 0); out.push({ img: decode(src), w }); }
+      else if (m[2] !== undefined) buf += m[2];
+      else if (/^<\/?(span|a|strong|b|font)/i.test(m[0])) buf += ' ';
+      else flush();
+    }
+    flush(); return out;
+  }
+  const decode = s => s.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n));
+  const goodImg = t => t && t.img && /^https?:\/\//.test(t.img) && !BAD_IMG.test(t.img) && !(t.w && t.w < 40);
+
+  // 상품 블록: [이미지] 상품명 (옵션) 수량 가격 — 이름 뒤 6칸 안에 가격이 있어야 인정
+  function itemsFromTokens(toks) {
     const items = [];
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i];
-      let m = l.match(/^(?:상품명|주문상품명?|상품정보|주문하신 상품|구매상품|상품)\s*[:：|]?\s*(.{4,120})$/);
-      if (m && !/금액|가격|수량/.test(m[1])) {
-        let price = won(l.replace(m[1], '')) || null;
-        for (let k = 1; k <= 3 && !price && lines[i + k]; k++) if (/금액|가격|원$/.test(lines[i + k])) price = won(lines[i + k]);
-        const q = (lines.slice(i, i + 4).join(' ').match(/수량\s*[:：]?\s*(\d+)/) || [])[1];
-        items.push({ name: clean(m[1]), price, qty: q ? +q : 1 });
+    for (let i = 0; i < toks.length; i++) {
+      let name = toks[i].t; if (!name) continue;
+      const lab = name.match(/^(?:상품명|주문\s*상품명?|상품\s*정보|구매\s*상품|주문하신\s*상품)\s*(?:[:：|]\s*|\s+)(.+)$/);
+      if (lab) name = lab[1];
+      name = clean(name);
+      if (!isProductName(name)) continue;
+      let price = null, qty = 1, opt = '';
+      for (let k = 1; k <= 6 && toks[i + k]; k++) {
+        const t = toks[i + k].t; if (!t) continue;
+        if (/^(옵션|선택)\s*[:：]/.test(t)) { opt = t.replace(/^(옵션|선택)\s*[:：]\s*/, ''); continue; }
+        const q = t.match(/(?:수량\s*[:：]?\s*(\d+)|(\d+)\s*개(?![가-힣]))/); if (q) qty = +(q[1] || q[2]);
+        if (/(총|합계|배송비|할인|적립|결제\s*금액|상품\s*금액|주문\s*금액)/.test(t) && !won(t)) break;
+        const p = won(t); if (p && p >= 100) { if (/(총|합계|배송비|할인|적립|결제\s*금액)/.test(t)) break; price = p; break; }
+        if (isProductName(clean(t)) && !/^(옵션|선택)/.test(t)) break; // 다음 상품명이 먼저 나오면 중단
       }
-    }
-    if (!items.length) { // 표 형태: "상품명 | 수량 | 금액" 한 줄
-      for (const l of lines) {
-        const m = l.match(/^(.{6,100}?)\s*[|\t]\s*(\d+)\s*개?\s*[|\t]\s*([0-9,]+)\s*원/);
-        if (m && !/상품명|합계|배송비/.test(m[1])) items.push({ name: clean(m[1]), qty: +m[2], price: +m[3].replace(/,/g, '') });
-      }
-    }
-    if (!items.length) { // 쿠팡류: 상품명 다음 줄에 "가격 원 / 수량 개"
-      for (let i = 0; i < lines.length - 1; i++) {
-        const l = lines[i], n = lines[i + 1];
-        if (l.length >= 8 && l.length <= 120 && !/원|주문|배송|고객|안내|번호|일시|주소|님|결제|합계|할인|적립|쿠폰|포인트|수신|문의|http/.test(l) && /원/.test(n) && /개|수량|원$/.test(n))
-          items.push({ name: clean(l), price: won(n), qty: +((n.match(/(\d+)\s*개/) || [])[1] || 1) });
-      }
+      if (!price) continue;
+      let img = null;
+      for (let k = 1; k <= 5 && i - k >= 0; k++) { const t = toks[i - k]; if (goodImg(t)) { img = t.img; break; } if (t.t && won(t.t)) break; }
+      items.push({ name, price, qty, opt: opt || undefined, img: img || undefined });
     }
     const seen = new Set();
-    return items.filter(it => it.name.length >= 4 && !seen.has(it.name) && seen.add(it.name));
+    return items.filter(it => !seen.has(it.name) && seen.add(it.name));
   }
-  const clean = s => s.replace(/\[[^\]]*\]|\([^)]*옵션[^)]*\)|\s*(옵션|선택)\s*[:：].*$|\s*\/\s*\d+\s*개\s*$/g, ' ').replace(/[★☆♥●■◆▶]+/g, ' ').replace(/\s+/g, ' ').trim();
+  function parseItems(text) { return itemsFromTokens(String(text || '').split(/\n+/).flatMap(l => l.includes('|') ? l.split('|') : [l]).map(t => ({ t: t.trim() })).filter(t => t.t)); }
+  const clean = s => String(s).replace(/\[[^\]]*(무료|특가|배송|당일|단독|행사)[^\]]*\]|\([^)]*옵션[^)]*\)|\s*(옵션|선택)\s*[:：].*$|\s*\/\s*\d+\s*개\s*$/g, ' ').replace(/[★☆♥●■◆▶]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const orderNoOf = t => (t.match(/주문\s*번호\s*[:：]?\s*([0-9A-Z\-]{8,24})/) || [])[1] || null;
 
-  /** mail: {subject, from, date, body} → orders[] */
+  /** mail: {subject, from, date, body?, html?} → orders[] */
   function parseMail(mail) {
-    const text = `${mail.subject || ''}\n${mail.body || ''}`;
-    if (CANCEL_HINT.test(mail.subject || '')) return [];
+    const toks = mail.html ? htmlTokens(mail.html) : null;
+    const body = toks ? toks.map(t => t.t || '').filter(Boolean).join('\n') : (mail.body || '');
+    const text = `${mail.subject || ''}\n${body}`;
+    if (/(취소|환불|반품|교환)/.test(mail.subject || '')) return [];
     if (!ORDER_HINT.test(text)) return [];
     const mall = detectMall(text, mail.from);
     const date = parseDate(mail.date || '', null) || parseDate(text, null);
-    return parseItems(mail.body || '').map(it => ({ ...it, mall, date, source: 'mail' }));
+    const orderNo = orderNoOf(body);
+    const items = toks ? itemsFromTokens(toks) : parseItems(body);
+    return items.map(it => ({ ...it, mall, date, orderNo: orderNo || undefined, source: 'mail' }));
+  }
+  // 같은 주문이 주문완료·발송·배송완료 메일로 여러 번 → 하나로. 주문번호 같으면 같은 주문, 없으면 같은 쇼핑몰·이름 5일 이내
+  function dedupe(orders) {
+    const out = [], byNo = new Map();
+    for (const o of [...orders].filter(o => o && o.date && isProductName(clean(o.name))).sort((a, b) => a.date < b.date ? -1 : 1)) {
+      const k = o.orderNo ? o.orderNo + '|' + o.name : null;
+      if (k && byNo.has(k)) { const p = byNo.get(k); p.img = p.img || o.img; continue; }
+      const near = !k && out.find(p => p.name === o.name && p.mall === o.mall && Math.abs(day(p.date) - day(o.date)) <= 5);
+      if (near) { near.img = near.img || o.img; continue; }
+      out.push({ ...o }); if (k) byNo.set(k, out[out.length - 1]);
+    }
+    return out;
   }
 
   // 정규화 키: 용량/개수/브랜드 노이즈 제거 후 핵심 토큰
@@ -97,7 +144,7 @@
   function analyze(orders, today, aliases) {
     today = today || new Date().toISOString().slice(0, 10);
     const out = [];
-    for (const { key, list, alias, forced } of group(orders, aliases)) {
+    for (const { key, list, alias, forced } of group(dedupe(orders), aliases)) {
       list.sort((a, b) => a.date < b.date ? -1 : 1);
       const dates = [...new Set(list.map(o => o.date))].sort();
       if (dates.length < 2) continue;
@@ -121,7 +168,7 @@
       const dLeft = day(nextDate) - day(today);
       const prices = list.filter(o => o.price).map(o => ({ date: o.date, price: Math.round(o.price / (o.qty || 1)), mall: o.mall }));
       const status = dLeft < 0 ? '지금 살 때' : dLeft <= 14 ? '곧 필요' : '여유';
-      out.push({ key, name: forced ? alias : list[list.length - 1].name, count: dates.length, dates, gaps, avgGap: Math.round(avg), cv: +cv.toFixed(2), type, confidence: +confidence.toFixed(2), last, nextDate, daysLeft: dLeft, status, prices, malls: [...new Set(list.map(o => o.mall))], names: [...new Set(list.map(o => o.name))] });
+      out.push({ key, name: forced ? alias : list[list.length - 1].name, count: dates.length, dates, gaps, avgGap: Math.round(avg), cv: +cv.toFixed(2), type, confidence: +confidence.toFixed(2), last, nextDate, daysLeft: dLeft, status, prices, malls: [...new Set(list.map(o => o.mall))], img: (list.slice().reverse().find(o => o.img) || {}).img || null, names: [...new Set(list.map(o => o.name))] });
     }
     return out.sort((a, b) => a.daysLeft - b.daysLeft);
   }
@@ -135,7 +182,7 @@
       const l = lines[i];
       const dm = l.match(/^(20\d{2})[.\-\/]\s*(\d{1,2})[.\-\/]\s*(\d{1,2})\.?\s*(주문|결제)?/);
       if (dm && l.length < 30) { date = `${dm[1]}-${dm[2].padStart(2, '0')}-${dm[3].padStart(2, '0')}`; continue; }
-      if (!date || l.length < 8 || l.length > 140 || skip.test(l)) continue;
+      if (!date || l.length < 8 || l.length > 140 || skip.test(l) || !isProductName(clean(l))) continue;
       for (let k = 1; k <= 3 && lines[i + k]; k++) {
         const pm = lines[i + k].replace(/\s/g, '').match(/^([0-9,]+)원(?:·|\/)?(\d+)?개?$/);
         if (pm) { out.push({ name: clean(l), price: +pm[1].replace(/,/g, ''), qty: +(pm[2] || 1), mall, date, source: 'orderlist' }); i += k; break; }
@@ -144,6 +191,6 @@
     return out;
   }
 
-  const api = { parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
+  const api = { isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
   if (typeof module !== 'undefined') module.exports = api; else root.LetsBuy = api;
 })(typeof self !== 'undefined' ? self : this);

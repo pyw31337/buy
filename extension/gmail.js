@@ -34,9 +34,10 @@ async function gCollect() {
       const r = await fetch(`${gBase()}?ik=${ik}&view=pt&search=all&permthid=thread-f:${th}&th=${th}`, { credentials: 'include' });
       const html = await r.text(), d = new DOMParser().parseFromString(html, 'text/html');
       const subject = (d.querySelector('.maincontent font b, h2, title') || {}).textContent || '';
-      const body = (d.querySelector('.maincontent') || d.body).innerText || d.body.textContent || '';
+      const body = d.body.textContent || '';
       const dm = body.match(/(20\d{2})[.\-년\s]+(\d{1,2})[.\-월\s]+(\d{1,2})/) || html.match(/(\d{4})년 (\d{1,2})월 (\d{1,2})일/);
-      orders.push(...LetsBuy.parseMail({ subject, from: body.slice(0, 400), date: dm ? `${dm[1]}-${dm[2].padStart(2, '0')}-${dm[3].padStart(2, '0')}` : '', body }));
+      const mail = { id: 'g' + th, subject, from: body.slice(0, 400), date: dm ? `${dm[1]}-${dm[2].padStart(2, '0')}-${dm[3].padStart(2, '0')}` : '', html: (d.querySelector('.maincontent') || d.body).innerHTML };
+      GRAW.push(mail); orders.push(...LetsBuy.parseMail(mail));
     } catch (e) { fail++; }
     if (++n % 10 === 0) lbToast(`렛츠바이 분석 중 · ${n}/${all.size}`);
     await gsleep(150);
@@ -44,11 +45,11 @@ async function gCollect() {
   diag('gmail-done', true, `threads=${all.size} orders=${orders.length} fail=${fail}`);
   return orders;
 }
-let grunning = false;
+let grunning = false, GRAW = [];
 chrome.runtime.onMessage.addListener((m, _s, reply) => {
   if (m.type === 'collect' && !grunning) {
-    grunning = true; lbToast('렛츠바이 수집 시작');
-    gCollect().then(o => { chrome.runtime.sendMessage({ type: 'orders', orders: o, done: true }); lbToast(`완료 · 상품 ${o.length}개`, true); })
+    grunning = true; GRAW = []; lbToast('렛츠바이 수집 시작');
+    gCollect().then(o => { chrome.runtime.sendMessage({ type: 'orders', orders: o, mails: GRAW, done: true }); lbToast(`완료 · 상품 ${o.length}개`, true); })
       .catch(e => { diag('gmail', false, e.message); lbToast('Gmail 수집이 막혔어요', true); chrome.runtime.sendMessage({ type: 'done', count: 0, failed: true }); })
       .finally(() => grunning = false);
     reply({ ok: true });

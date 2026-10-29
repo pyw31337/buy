@@ -3,6 +3,7 @@ const QUERIES = ['주문', '결제', '배송', '구매', '쿠팡', '네이버페
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const say = text => { lbToast(text); chrome.runtime.sendMessage({ type: 'progress', text }).catch(() => {}); };
 let stopFlag = false;
+let RAW = [];
 
 function toText(html) { const d = document.createElement('div'); d.innerHTML = String(html || '').replace(/<(br|\/p|\/tr|\/div|\/li|\/td|\/th|\/h\d)[^>]*>/gi, '\n').replace(/<(td|th)[^>]*>/gi, ' | '); d.querySelectorAll('script,style').forEach(x => x.remove()); return d.textContent || ''; }
 
@@ -50,7 +51,8 @@ async function strategyApi() {
         try {
           const r = await call('/json/read', { mailSN: sn, previewMode: 1, isUnreadMail: false });
           const mi = r.mailInfo || r.result || r;
-          orders.push(...LetsBuy.parseMail({ subject: mi.subject || subject, from: JSON.stringify(mi.from || m.from || ''), date: t ? new Date(t).toISOString().slice(0, 10) : '', body: toText(mi.body || mi.contents || mi.html || '') }));
+          const mail = { id: 'n' + sn, subject: mi.subject || subject, from: JSON.stringify(mi.from || m.from || ''), date: t ? new Date(t).toISOString().slice(0, 10) : '', html: String(mi.body || mi.contents || mi.html || '') };
+          RAW.push(mail); orders.push(...LetsBuy.parseMail(mail));
         } catch (e) { if (++readFail <= 5) diag('api-read', false, e.message); }
         await sleep(200);
       }
@@ -80,12 +82,12 @@ function readOpenMail() {
 
 let running = false;
 async function collectAll() {
-  if (running) return; running = true; stopFlag = false;
+  if (running) return; running = true; stopFlag = false; RAW = [];
   say('렛츠바이 수집 시작');
   let orders = [];
   try { orders = await strategyApi(); }
   catch (e) { diag('collect', false, e.message); orders = readOpenMail(); if (!orders.length) { lbToast('자동 수집이 막혔어요 · 주문 메일을 열고 다시 눌러 주세요', true); running = false; chrome.runtime.sendMessage({ type: 'done', count: 0, failed: true }); return; } }
-  chrome.runtime.sendMessage({ type: 'orders', orders, done: true });
+  chrome.runtime.sendMessage({ type: 'orders', orders, mails: RAW, done: true });
   lbToast(`완료 · 상품 ${orders.length}개`, true); running = false;
 }
 chrome.runtime.onMessage.addListener((msg, _s, reply) => {

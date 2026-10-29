@@ -25,7 +25,7 @@ chrome.action.onClicked.addListener(async tab => {
 chrome.runtime.onMessage.addListener((m, _s, reply) => {
   if (m.type === 'progress') { const n = (m.text.match(/(\d+)개/) || [])[1]; if (n) badge(n); }
   if (m.type === 'done' && m.failed) badge('!', '#C8321E');
-  if (m.type === 'orders') saveOrders(m.orders).then(async n => {
+  if (m.type === 'orders') saveOrders(m.orders, m.mails).then(async n => {
     if (!m.done) return;
     badge('✓', '#1F9D63'); setTimeout(() => badge(''), 8000);
     const [t] = await chrome.tabs.query({ url: WEB + '*' });
@@ -37,15 +37,21 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
 });
 chrome.notifications.onClicked.addListener(() => chrome.tabs.create({ url: 'https://pyw31337.github.io/buy/' }));
 
-async function saveOrders(list) {
-  const { orders = [] } = await chrome.storage.local.get('orders');
-  const seen = new Set(orders.map(o => o.date + o.name));
-  let added = 0;
-  for (const o of list || []) if (o.date && o.name && !seen.has(o.date + o.name)) { orders.push(o); seen.add(o.date + o.name); added++; }
-  await chrome.storage.local.set({ orders });
-  diag('save', true, `added=${added} total=${orders.length}`);
+// 원본 메일 HTML은 이 브라우저 안에만 보관 → 해석기가 좋아지면 다시 수집하지 않고 재분석
+const slim = h => String(h || '').replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, '').replace(/\s(style|class|id|bgcolor|align|valign|cellpadding|cellspacing|border)="[^"]*"/gi, '').slice(0, 80000);
+async function saveOrders(list, mails) {
+  const st = await chrome.storage.local.get(['orders', 'mails']);
+  const box = st.mails || [], ids = new Set(box.map(m => m.id));
+  for (const m of mails || []) if (m.id && !ids.has(m.id)) { box.push({ ...m, html: slim(m.html) }); ids.add(m.id); }
+  const other = (st.orders || []).filter(o => o.source && o.source !== 'mail').concat((list || []).filter(o => o.source !== 'mail'));
+  const fromMail = box.flatMap(m => { try { return LetsBuy.parseMail(m); } catch { return []; } });
+  const orders = LetsBuy.dedupe(other.concat(fromMail));
+  await chrome.storage.local.set({ orders, mails: box, parser: chrome.runtime.getManifest().version });
+  diag('save', true, `mails=${box.length} orders=${orders.length}`);
   return orders.length;
 }
+// 확장을 새로 고치거나 업데이트하면 보관한 메일로 자동 재분석
+chrome.runtime.onInstalled.addListener(() => saveOrders([], []));
 
 // 가격 소스: 순서대로 시도. 모두 사용자 브라우저(국내 IP)에서 품목당 하루 1회만 요청
 const SOURCES = [

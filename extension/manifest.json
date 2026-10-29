@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "렛츠바이 수집기",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "로그인된 네이버 메일에서 주문 메일을 찾아 내 브라우저에만 저장하고, 재구매 품목 가격을 하루 한 번 기록합니다.",
   "permissions": [
     "storage",
     "alarms",
     "notifications",
-    "tabs"
+    "tabs",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "https://mail.naver.com/*",
