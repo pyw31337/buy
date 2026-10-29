@@ -23,4 +23,8 @@ for (const [k, e] of Object.entries(CASES)) {
   if (r.some(o => o.img && /logo|banner|footer/i.test(o.img))) ok = false;
   if (!ok) { fail++; console.log('FAIL', k, JSON.stringify(r.map(o => [o.name, o.price, o.qty, o.mall, o.date, o.img]))); } else console.log('PASS', k, r.length + '개');
 }
+// 잡음 이름 차단 + 1회 구매도 품목 목록에 포함
+if (c.isProductName('구매 상세내역') || c.isProductName('주문내역 상세보기')) { fail++; console.log('FAIL junk name'); } else console.log('PASS junk name');
+const A = c.analyze([{ name: '촌두부 550g', date: '2026-05-29', mall: 'SSG', price: 1990, qty: 1 }, { name: '페리오 치약 100g 6개', date: '2026-01-01', mall: '쿠팡' }, { name: '페리오 치약 100g 6개', date: '2026-03-01', mall: '쿠팡' }], '2026-10-29', {}, { all: true });
+if (A.length !== 2 || !A.some(i => i.count === 1 && i.type === '1회') || c.analyze([{ name: '촌두부 550g', date: '2026-05-29', mall: 'SSG' }], '2026-10-29').length !== 0) { fail++; console.log('FAIL analyze all', JSON.stringify(A.map(i => [i.name, i.count, i.type]))); } else console.log('PASS analyze all');
 console.log(fail ? fail + ' FAILED' : 'REAL ALL PASS'); process.exit(fail ? 1 : 0);

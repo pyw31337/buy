@@ -19,7 +19,7 @@ async function gCollect() {
   const ik = gIk(); diag('gmail-ik', !!ik, ik ? 'found' : 'missing');
   location.hash = '#search/' + encodeURIComponent(GQ);
   let ids = await waitRows(''), all = new Set(ids), page = 1;
-  while (page < 60) {
+  while (page < 400) {
     const older = document.querySelector('[aria-label="이전"][role="button"]:not([aria-disabled="true"]), [aria-label="Older"][role="button"]:not([aria-disabled="true"]), [data-tooltip="이전"]:not([aria-disabled="true"])');
     if (!older) break;
     older.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); older.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
@@ -42,14 +42,16 @@ async function gCollect() {
     if (++n % 10 === 0) lbToast(`렛츠바이 분석 중 · ${n}/${all.size}`);
     await gsleep(150);
   }
+  const ds = GRAW.map(m => m.date).filter(Boolean).sort(), pm = {}; orders.forEach(o => pm[o.mall] = (pm[o.mall] || 0) + 1);
+  GSTATS = { src: 'gmail', at: new Date().toISOString(), years: 2, scanned: all.size, candidates: all.size, read: n - fail, parsed: new Set(orders.map(o => o.date + o.mall)).size, readFail: fail, oldest: ds[0] || null, newest: ds[ds.length - 1] || null, perMall: pm, failMall: {} };
   diag('gmail-done', true, `threads=${all.size} orders=${orders.length} fail=${fail}`);
   return orders;
 }
-let grunning = false, GRAW = [];
+let grunning = false, GRAW = [], GSTATS = null;
 chrome.runtime.onMessage.addListener((m, _s, reply) => {
   if (m.type === 'collect' && !grunning) {
     grunning = true; GRAW = []; lbToast('렛츠바이 수집 시작');
-    gCollect().then(o => { chrome.runtime.sendMessage({ type: 'orders', orders: o, mails: GRAW, done: true }); lbToast(`완료 · 상품 ${o.length}개`, true); })
+    gCollect().then(o => { chrome.runtime.sendMessage({ type: 'orders', orders: o, mails: GRAW, stats: GSTATS, done: true }); lbToast(`완료 · 상품 ${o.length}개`, true); })
       .catch(e => { diag('gmail', false, e.message); lbToast('Gmail 수집이 막혔어요', true); chrome.runtime.sendMessage({ type: 'done', count: 0, failed: true }); })
       .finally(() => grunning = false);
     reply({ ok: true });

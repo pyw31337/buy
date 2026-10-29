@@ -25,6 +25,7 @@ chrome.action.onClicked.addListener(async tab => {
 chrome.runtime.onMessage.addListener((m, _s, reply) => {
   if (m.type === 'progress') { const n = (m.text.match(/(\d+)개/) || [])[1]; if (n) badge(n); }
   if (m.type === 'done' && m.failed) badge('!', '#C8321E');
+  if (m.type === 'orders' && m.stats) chrome.storage.local.set({ collectStats: m.stats });
   if (m.type === 'orders') saveOrders(m.orders, m.mails).then(async n => {
     if (!m.done) return;
     badge('✓', '#1F9D63'); setTimeout(() => badge(''), 8000);
@@ -38,7 +39,7 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
 chrome.notifications.onClicked.addListener(() => chrome.tabs.create({ url: 'https://pyw31337.github.io/buy/' }));
 
 // 원본 메일 HTML은 이 브라우저 안에만 보관 → 해석기가 좋아지면 다시 수집하지 않고 재분석
-const slim = h => String(h || '').replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, '').replace(/\s(style|class|id|bgcolor|align|valign|cellpadding|cellspacing|border)="[^"]*"/gi, '').slice(0, 80000);
+const slim = h => String(h || '').replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, '').replace(/\s(style|class|id|bgcolor|align|valign|cellpadding|cellspacing|border)="[^"]*"/gi, '').slice(0, 400000);
 async function saveOrders(list, mails) {
   const st = await chrome.storage.local.get(['orders', 'mails']);
   const box = st.mails || [], ids = new Set(box.map(m => m.id));

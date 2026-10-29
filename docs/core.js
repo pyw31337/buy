@@ -31,7 +31,7 @@
     if (BAD.test(s) || /[<>{}=]/.test(s)) return false;
     if (/(다|요|니다|세요|시오|함|음)\s*[.!?]?$|[.!?]$/.test(s)) return false;          // 문장
     if (/^(의|및|을|를|이|가|은|는|와|과|에|로|으로|또는|단)\s|^[※*\-·•]/.test(s)) return false;   // 조각
-    if (/특별시|광역시|\(\d{5}\)|^\[\d{5}\]|^주문\s*(상품|내역)|보기$|\d+\s*건$/.test(s)) return false;
+    if (/특별시|광역시|\(\d{5}\)|^\[\d{5}\]|^주문\s*(상품|내역)|보기$|상세\s*내역|구매\s*내역|주문\s*내역|^구매\s*상세|\d+\s*건$/.test(s)) return false;
     if (/https?:|www\.|@|\.com|\.co\.kr/i.test(s)) return false;
     if (!/[가-힣A-Za-z]{2,}/.test(s)) return false;
     if (/^[\d\s,.:\-\/원개()]+$/.test(s)) return false;
@@ -254,13 +254,14 @@
   const day = d => Math.round(new Date(d + 'T00:00:00Z').getTime() / 864e5);
 
   /** orders → 재구매 분석 결과 */
-  function analyze(orders, today, aliases) {
+  function analyze(orders, today, aliases, opts) {
+    const all = opts && opts.all;
     today = today || new Date().toISOString().slice(0, 10);
     const out = [];
     for (const { key, list, alias, forced } of group(dedupe(orders), aliases)) {
       list.sort((a, b) => a.date < b.date ? -1 : 1);
       const dates = [...new Set(list.map(o => o.date))].sort();
-      if (dates.length < 2) continue;
+      if (dates.length < 2) { if (all && dates.length) { const prices = list.filter(o => o.price).map(o => ({ date: o.date, price: Math.round(o.price / (o.qty || 1)), mall: o.mall })); out.push({ key, name: forced ? alias : list[list.length - 1].name, count: 1, dates, gaps: [], avgGap: 0, cv: 0, type: '1회', confidence: 0, last: dates[0], nextDate: null, daysLeft: 9999, status: '1회 구매', prices, malls: [...new Set(list.map(o => o.mall))], img: (list.slice().reverse().find(o => o.img) || {}).img || null, names: [...new Set(list.map(o => o.name))] }); } continue; }
       const gaps = dates.slice(1).map((d, i) => day(d) - day(dates[i]));
       const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
       const sd = Math.sqrt(gaps.reduce((a, g) => a + (g - avg) ** 2, 0) / gaps.length);
@@ -283,7 +284,7 @@
       const status = dLeft < 0 ? '지금 살 때' : dLeft <= 14 ? '곧 필요' : '여유';
       out.push({ key, name: forced ? alias : list[list.length - 1].name, count: dates.length, dates, gaps, avgGap: Math.round(avg), cv: +cv.toFixed(2), type, confidence: +confidence.toFixed(2), last, nextDate, daysLeft: dLeft, status, prices, malls: [...new Set(list.map(o => o.mall))], img: (list.slice().reverse().find(o => o.img) || {}).img || null, names: [...new Set(list.map(o => o.name))] });
     }
-    return out.sort((a, b) => a.daysLeft - b.daysLeft);
+    return out.sort((a, b) => a.daysLeft - b.daysLeft || (a.last < b.last ? 1 : -1));
   }
 
   /** 쿠팡·네이버페이 등 '주문목록' 화면 텍스트 → orders[]. 날짜 줄 아래 상품명+가격 줄을 묶음 */

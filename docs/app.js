@@ -92,9 +92,27 @@
     $('#due').innerHTML = due.map(i => card(i, d)).join('') ;
     $('#season').innerHTML = season.map(i => card(i, d)).join(''); $('#seasonH').style.display = season.length ? '' : 'none';
     const q = $('#q').value.trim();
-    const rows = items.filter(i => (filter === 'all' || (filter === '기타' ? !/주기|시즌/.test(i.type) : i.type.startsWith(filter))) && (!q || i.name.includes(q)));
-    $('#list').innerHTML = rows.map(i => `<div class="lrow" data-k="${esc(i.key)}">${thumb(i, 44)}<div class="lmain"><b>${esc(i.name)}</b><div class="chips">${i.malls.map(mallChip).join('')}<span class="cnt">${i.count}회 · ${i.avgGap}일</span></div></div>${ring(i, 44)}</div>`).join('') || '<div class="empty">없어요</div>';
-    $$('[data-k]').forEach(el => el.onclick = () => open(items.find(i => i.key === el.dataset.k), d));
+    const all = LetsBuy.analyze(d.orders, d.today, d.aliases, { all: true });
+    const rows = all.filter(i => (filter === 'all' || (filter === '재구매' ? i.count >= 2 : filter === '1회' ? i.count === 1 : i.type.startsWith(filter))) && (!q || i.name.includes(q)))
+      .sort((x, y) => (y.count >= 2) - (x.count >= 2) || (x.count >= 2 ? x.daysLeft - y.daysLeft : (x.last < y.last ? 1 : -1)));
+    $$('#filter button').forEach(b => { const f = b.dataset.f, n = f === 'all' ? all.length : f === '재구매' ? all.filter(i => i.count >= 2).length : f === '1회' ? all.filter(i => i.count === 1).length : all.filter(i => i.type.startsWith(f)).length; b.textContent = b.dataset.l + ' ' + n; });
+    $('#summary').innerHTML = summary(d.orders);
+    $('#list').innerHTML = rows.map(i => `<div class="lrow" data-k="${esc(i.key)}">${thumb(i, 44)}<div class="lmain"><b>${esc(i.name)}</b><div class="chips">${i.malls.map(mallChip).join('')}<span class="cnt">${i.count >= 2 ? i.count + '회 · ' + i.avgGap + '일 간격' : '1회 · ' + i.last}</span></div></div>${i.count >= 2 ? ring(i, 44) : `<span class="once">${i.prices.length ? fmt(i.prices[0].price) : ''}</span>`}</div>`).join('') || '<div class="empty">없어요</div>';
+    $$('[data-k]').forEach(el => el.onclick = () => { const it = all.find(i => i.key === el.dataset.k); if (it) open(it, d); });
+  }
+
+  // 수집 요약: 확인한 메일 수, 기간, 쇼핑몰별 주문, 못 읽은 메일
+  function summary(orders) {
+    if (demo || !orders.length) return '';
+    const s = store.stats, ds = orders.map(o => o.date).filter(Boolean).sort(), pm = {};
+    orders.forEach(o => pm[o.mall] = (pm[o.mall] || 0) + 1);
+    const malls = Object.entries(pm).sort((a, b) => b[1] - a[1]).map(([m, n]) => `${mallChip(m)}<b>${n}</b>`).join(' ');
+    const fails = s && s.failMall ? Object.entries(s.failMall).map(([m, n]) => `${m} ${n}`).join(' · ') : '';
+    return `<div class="sum"><div class="sumrow">
+      ${s ? `<div><span>확인한 메일</span><b>${(s.scanned || 0).toLocaleString()}통</b><small>${s.oldest || '?'} ~ ${s.newest || '?'} · 최근 ${s.years || 2}년</small></div>
+      <div><span>주문 메일</span><b>${(s.read || 0).toLocaleString()}통</b><small>상품 찾음 ${(s.parsed || 0).toLocaleString()} · 못 읽음 ${((s.noItems || 0) + (s.readFail || 0)).toLocaleString()}</small></div>` : '<div><span>확인한 메일</span><b>—</b><small>확장 v0.8로 다시 수집하면 보여요</small></div>'}
+      <div><span>구매 기록</span><b>${orders.length.toLocaleString()}건</b><small>${ds[0] || ''} ~ ${ds[ds.length - 1] || ''}</small></div></div>
+      <div class="summalls">${malls}</div>${fails ? `<p class="sumfail">상품을 못 찾은 주문 메일: ${esc(fails)} · '메일 샘플 내려받기'로 보내 주시면 고칠게요</p>` : ''}</div>`;
   }
   function chart(series, paid) {
     const W = 680, H = 200, P = 30, ps = series.map(s => s.price), mn = Math.min(...ps, paid || Infinity) * 0.97, mx = Math.max(...ps, paid || 0) * 1.03;
@@ -171,7 +189,7 @@
     if (e.source !== window || e.origin !== location.origin || !e.data || e.data.app !== 'letsbuy-ext') return;
     if (e.data.type === 'diag') extLog = e.data.diag;
     if (e.data.type === 'hello') { extInfo = { version: e.data.version }; $('#extState').textContent = '확장 연결됨'; $('#extState').classList.add('on'); window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*'); }
-    if (e.data.type === 'data') { merge(e.data.orders, e.data.prices, true); $('#extState').textContent = `확장 v${e.data.version} · 주문 ${e.data.orders.length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
+    if (e.data.type === 'data') { if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders, e.data.prices, true); $('#extState').textContent = `확장 v${e.data.version} · 주문 ${e.data.orders.length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
   });
   $('#pullExt').onclick = () => window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*');
   setTimeout(() => { if (!$('#extState').classList.contains('on')) $('#extState').textContent = '확장 없음'; }, 1500);
