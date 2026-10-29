@@ -245,3 +245,31 @@ code{font-size:12px;background:#F0EFEB;padding:2px 6px;border-radius:6px;word-br
 .mcr{display:grid;grid-template-columns:36px minmax(120px,240px) 1fr;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}.mcr>b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mcc{display:flex;flex-wrap:wrap;gap:4px 14px}.mcc button{border:0;background:none;padding:4px 0;font:inherit;font-size:13px;color:var(--ink2);cursor:pointer;border-bottom:1px solid transparent}.mcc button:hover{color:var(--accent);border-bottom-color:var(--accent)}
 @media(max-width:640px){.mcr{grid-template-columns:36px 1fr}.mcc{grid-column:1/-1}}
+
+/* 메인 UI 심미 정리 — 심플 + 풍부 */
+:root {
+  --shadow: 0 4px 20px rgba(10,28,56,.06);
+  --shadow-hover: 0 12px 32px rgba(10,28,56,.1);
+}
+.card, .lrow, .advsec {
+  box-shadow: var(--shadow);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.card:hover, .lrow:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+.card.v4, .lrow {
+  border: 0;
+  background: #fff;
+}
+.top {
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,.85);
+  border-bottom: 1px solid rgba(0,0,0,.04);
+}
+.brand b { letter-spacing: -.4px; }
+.lh { letter-spacing: -.02em; }
+.stat b { font-variant-numeric: tabular-nums; }
+.mall { border-radius: 8px; font-weight: 700; }
+.th { border-radius: 12px; }
