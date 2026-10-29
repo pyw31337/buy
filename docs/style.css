@@ -273,3 +273,69 @@ code{font-size:12px;background:#F0EFEB;padding:2px 6px;border-radius:6px;word-br
 .stat b { font-variant-numeric: tabular-nums; }
 .mall { border-radius: 8px; font-weight: 700; }
 .th { border-radius: 12px; }
+
+/* 세련된 디자인 업그레이드 */
+:root {
+  --ink: #0F172A;
+  --ink2: #64748B;
+  --bg: #F8FAFC;
+  --card: #FFFFFF;
+  --accent: #0A1C38;
+  --line: #E2E8F0;
+}
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-feature-settings: "ss01", "tnum";
+}
+.top {
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(226,232,240,.6);
+}
+.card, .lrow {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(15,23,42,.04), 0 4px 12px rgba(15,23,42,.03);
+  border: 1px solid rgba(226,232,240,.8);
+}
+.card:hover, .lrow:hover {
+  box-shadow: 0 8px 24px rgba(15,23,42,.08);
+  border-color: #CBD5E1;
+}
+.brand b {
+  font-weight: 800;
+  letter-spacing: -.5px;
+  background: linear-gradient(135deg, #0A1C38, #334155);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.lh {
+  font-weight: 800;
+  letter-spacing: -.03em;
+  color: var(--ink);
+}
+.btn {
+  border-radius: 12px;
+  font-weight: 600;
+  transition: all .15s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.mall {
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+.th {
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.advsec {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(15,23,42,.04);
+}
+.advsec.primary {
+  background: linear-gradient(135deg, #F8FAFC, #FFFFFF);
+  border-color: #CBD5E1;
+}
