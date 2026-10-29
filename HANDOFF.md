@@ -159,3 +159,9 @@ gh release create vX.Y.Z docs/letsbuy-extension.zip -t vX.Y.Z -n "..."
 
 ## v0.14.3 — OG 이미지 최종
 - `docs/og-image.png`: 그래프 배경 + 가방 앞 휴대폰·영수증, 좌상단 "Let’s Buy" 한 줄(Great Vibes, #B03E1A), 부제 '쇼핑분석으로 더 스마트한 쇼핑을'(Pretendard ExtraBold, #5C3A2A). og 캐시버스트 `?v=0143`.
+
+## v0.15.0 — 클라우드 동기화 · 필터 강화 (2026-10-29)
+- 구글 드라이브 옵트인 동기화 추가 (Client ID 반영). 고급 메뉴에서 저장/불러오기.
+- 익스포트/임포트 개선. 썸네일은 공유 캐시(Worker + R2)에서 채워짐.
+- 상품명 필터 강화: "오늘" 등 짧은 단어, 광고성 영문 제목 걸러내기.
+- core.js 완전 복구 후 적용.
