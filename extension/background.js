@@ -240,3 +240,17 @@ async function fillImages(force) {
   } finally { filling = false; }
 }
 chrome.runtime.onMessage.addListener((m, _s, reply) => { if (m && m.type === 'fillImages') { fillImages(m.force).then(reply); return true; } });
+
+// 쇼핑 위젯용 조회
+chrome.runtime.onMessage.addListener((m, _s, reply) => {
+  if (m && m.type === 'lookup' && m.name) {
+    chrome.storage.local.get(['orders'], ({ orders = [] }) => {
+      const name = m.name.toLowerCase();
+      const matches = orders.filter(o => o.name && o.name.toLowerCase().includes(name.slice(0, 20)));
+      if (!matches.length) return reply({ found: false });
+      const last = matches[matches.length - 1];
+      reply({ found: true, count: matches.length, lastPrice: last.price, lastDate: last.date });
+    });
+    return true;
+  }
+});
