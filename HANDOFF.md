@@ -149,3 +149,8 @@ gh release create vX.Y.Z docs/letsbuy-extension.zip -t vX.Y.Z -n "..."
 6. 버전을 올립니다(manifest, `?v=`). zip을 만들고 커밋, push, `gh release create`를 실행한 뒤 Pages 반영을 curl로 확인합니다.
 7. 이 파일의 백로그 상태와 설계 문서 Page(로드맵, 변경 기록 맨 위의 10-28 v0.1 다음)를 갱신합니다.
 8. 오너에게 짧게 한국어로 보고합니다: 스크린샷, 바뀐 점, 한계.
+
+## v0.14.2 — 아이콘/OG 교체
+- 아이콘: 주황 가죽 가방 + 음각 'Let's' (배경 제거본 `docs/brand/letsbuy-bag.png`). favicon.ico(16/32/48), favicon-16~512, apple-touch(180, 밝은 배경), maskable-512(네이비 풀블리드), 확장 icons 16/32/48/128, 헤더 로고(favicon-192).
+- OG: `docs/og-image.png` 1200x630 (베이지 벽·나무 배경, 좌측 'Lets Buy' + 한 줄 설명). 메타 태그 `?v=0142` 캐시버스트, og:image:width/height, twitter:image 추가.
+- 원본 생성 스크립트: rembg(isnet-general-use) + Pillow. 기존 SVG 아이콘 링크는 제거(파일은 남김).
