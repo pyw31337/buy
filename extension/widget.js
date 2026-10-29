@@ -1,47 +1,71 @@
-// 렛츠바이 쇼핑 위젯 — 과거 구매 + 해외직구 저가 검사
+// 렛츠바이 쇼핑 위젯 — 심플 + 심미 + 풍부한 내용
 (() => {
   if (document.getElementById('letsbuy-widget')) return;
   const host = location.hostname;
-  const isCoupang = /coupang\.com/.test(host);
-  const isGmarket = /gmarket\.co\.kr/.test(host);
-  const isNaver = /shopping\.naver\.com|smartstore\.naver\.com/.test(host);
-  if (!isCoupang && !isGmarket && !isNaver) return;
+  if (!/coupang\.com|gmarket\.co\.kr|shopping\.naver\.com|smartstore\.naver\.com/.test(host)) return;
 
   const titleEl = document.querySelector('h1, .prod-buy-header__title, .itemtit, h2.product_title, [class*="title"]');
   const title = (titleEl?.textContent || '').trim().slice(0, 100);
   if (!title || title.length < 4) return;
 
-  const imgEl = document.querySelector('img[src*="product"], img[src*="item"], .prod-image img, img');
-  const imgUrl = imgEl?.src || '';
-
   chrome.runtime.sendMessage({ type: 'lookup', name: title }, res => {
     const el = document.createElement('div');
     el.id = 'letsbuy-widget';
-    el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:999999;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.15);padding:14px 16px;font-size:13px;max-width:300px;font-family:system-ui;line-height:1.4';
-    const history = res?.found
-      ? `<div style="margin-bottom:8px">예전에 산 적 있어요 · <b>${res.count}회</b><br><small style="color:#555">마지막 ${res.lastPrice ? res.lastPrice.toLocaleString()+'원' : ''}</small></div>`
-      : '<div style="margin-bottom:8px;color:#777">구매 기록 없음</div>';
-
-    // 해외 검색 링크 (상품명 기반, 무료)
-    const q = encodeURIComponent(title);
-    const ali = `https://www.aliexpress.com/wholesale?SearchText=${q}`;
-    const temu = `https://www.temu.com/search_result.html?search_key=${q}`;
-    const amazon = `https://www.amazon.com/s?k=${q}`;
-
     el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <b style="color:#0A1C38">렛츠바이</b>
-        <span style="margin-left:auto;cursor:pointer;font-size:18px" onclick="this.closest('#letsbuy-widget').remove()">×</span>
+      <style>
+        #letsbuy-widget {
+          position: fixed; bottom: 24px; right: 24px; z-index: 999999;
+          width: 280px; background: #fff; border-radius: 20px;
+          box-shadow: 0 8px 32px rgba(10,28,56,.12);
+          font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif;
+          overflow: hidden; border: 1px solid #f0f0f0;
+        }
+        #letsbuy-widget .hd {
+          display: flex; align-items: center; padding: 14px 16px 10px;
+          background: linear-gradient(135deg, #0A1C38 0%, #1a3a6b 100%);
+          color: #fff;
+        }
+        #letsbuy-widget .hd b { font-size: 14px; letter-spacing: -.3px; }
+        #letsbuy-widget .close {
+          margin-left: auto; width: 22px; height: 22px; border-radius: 50%;
+          background: rgba(255,255,255,.15); display: grid; place-items: center;
+          cursor: pointer; font-size: 14px; line-height: 1;
+        }
+        #letsbuy-widget .bd { padding: 14px 16px 16px; }
+        #letsbuy-widget .hist { font-size: 13px; color: #333; margin-bottom: 12px; }
+        #letsbuy-widget .hist b { color: #0A1C38; }
+        #letsbuy-widget .sec { font-size: 12px; font-weight: 700; color: #0A1C38; margin: 10px 0 8px; }
+        #letsbuy-widget .btns { display: flex; gap: 6px; }
+        #letsbuy-widget .btns a {
+          flex: 1; text-align: center; padding: 8px 0; border-radius: 10px;
+          font-size: 12px; font-weight: 700; text-decoration: none; color: #fff;
+        }
+        #letsbuy-widget .ali { background: #FF4747; }
+        #letsbuy-widget .temu { background: #FB7701; }
+        #letsbuy-widget .amz { background: #FF9900; color: #111; }
+        #letsbuy-widget .more {
+          display: block; margin-top: 12px; text-align: center;
+          color: #0A1C38; font-size: 12px; font-weight: 600; text-decoration: none;
+        }
+      </style>
+      <div class="hd">
+        <b>렛츠바이</b>
+        <div class="close" onclick="this.closest('#letsbuy-widget').remove()">×</div>
       </div>
-      ${history}
-      <div style="font-weight:700;margin:8px 0 4px">해외직구 더 싸게?</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <a href="${ali}" target="_blank" style="background:#FF4747;color:#fff;padding:6px 10px;border-radius:8px;text-decoration:none;font-size:12px">알리</a>
-        <a href="${temu}" target="_blank" style="background:#FB7701;color:#fff;padding:6px 10px;border-radius:8px;text-decoration:none;font-size:12px">테무</a>
-        <a href="${amazon}" target="_blank" style="background:#FF9900;color:#000;padding:6px 10px;border-radius:8px;text-decoration:none;font-size:12px">아마존</a>
+      <div class="bd">
+        <div class="hist">
+          ${res?.found
+            ? `예전에 산 적 있어요 · <b>${res.count}회</b><br><span style="color:#666;font-size:12px">마지막 ${res.lastPrice ? res.lastPrice.toLocaleString()+'원' : ''}</span>`
+            : '<span style="color:#888">구매 기록 없음</span>'}
+        </div>
+        <div class="sec">해외직구 더 싸게?</div>
+        <div class="btns">
+          <a class="ali" href="https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(title)}" target="_blank">알리</a>
+          <a class="temu" href="https://www.temu.com/search_result.html?search_key=${encodeURIComponent(title)}" target="_blank">테무</a>
+          <a class="amz" href="https://www.amazon.com/s?k=${encodeURIComponent(title)}" target="_blank">아마존</a>
+        </div>
+        <a class="more" href="https://pyw31337.github.io/buy/#items" target="_blank">내 구매 기록 전체 보기 →</a>
       </div>
-      ${imgUrl ? `<div style="margin-top:8px;font-size:11px;color:#999">썸네일 기반 검색은 준비 중</div>` : ''}
-      <a href="https://pyw31337.github.io/buy/#items" target="_blank" style="display:inline-block;margin-top:10px;color:#0A1C38;font-weight:700;font-size:12px">내 구매 기록 보기</a>
     `;
     document.body.appendChild(el);
   });
