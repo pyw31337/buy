@@ -1,12 +1,15 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>렛츠바이</title>
+<title>렛츠바이 · 다시 살 때를 알려주는 구매 비서</title>
+<meta name="description" content="주문 메일로 자주 사는 물건의 구매 주기, 지금 최저가, 내 소비를 한눈에. 데이터는 내 브라우저에만.">
+<link rel="icon" href="favicon.ico" sizes="any"><link rel="icon" href="brand/letsbuy-icon.svg" type="image/svg+xml"><link rel="icon" href="brand/favicon-32.png" sizes="32x32"><link rel="apple-touch-icon" href="brand/apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0A1C38">
+<meta property="og:type" content="website"><meta property="og:title" content="렛츠바이"><meta property="og:description" content="자주 사는 물건, 살 때를 알려주는 구매 비서"><meta property="og:image" content="https://pyw31337.github.io/buy/og-image.png"><meta property="og:url" content="https://pyw31337.github.io/buy/"><meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
-<link rel="stylesheet" href="style.css?v=14"></head>
+<link rel="stylesheet" href="style.css?v=15"></head>
 <body>
 <header class="top">
-  <a class="brand" href="#home" data-go="home"><span class="logo">L</span><b>렛츠바이</b></a>
-  <nav id="tabs"><button data-tab="home">홈</button><button data-tab="prod">내 제품</button><button data-tab="dash">분석</button><button data-tab="items">전체 목록</button><button data-tab="recs" hidden>추천</button></nav>
+  <a class="brand" href="#home" data-go="home"><img class="blogo" src="brand/favicon-192.png" width="32" height="32" alt=""><b>렛츠바이</b></a>
+  <nav id="tabs"><button data-tab="home">홈</button><button data-tab="prod">살 때</button><button data-tab="dash">내 소비</button><button data-tab="items">구매 기록</button><button data-tab="recs" hidden>추천</button></nav>
   <div class="mode" id="mode"></div>
   <a class="hcta" href="https://github.com/pyw31337/buy/releases/latest/download/letsbuy-extension.zip"><span data-i="download"></span>확장 다운로드</a>
 </header>
@@ -45,8 +48,9 @@
   </section>
   <section id="prod" class="tab"><div id="prodBody"></div></section>
   <section id="pd" class="tab"><div id="pdBody"></div></section>
-  <section id="dash" class="tab"><div class="dhead"><h1>내 쇼핑 분석</h1><span class="muted">최근 2년 · 내 브라우저 안에서만 계산</span></div><div id="dashBody"></div></section>
+  <section id="dash" class="tab"><div class="dhead"><h1>내 소비</h1><span id="dashRange"></span></div><div id="dashBody"></div></section>
   <section id="items" class="tab">
+    <div class="dhead"><h1>구매 기록</h1><span id="itemsRange"></span></div>
     <div class="toolbar"><input id="q" placeholder="검색"><div class="seg" id="filter"><button data-f="all" data-l="전체" class="on">전체</button><button data-f="재구매" data-l="재구매">재구매</button><button data-f="주기" data-l="주기">주기</button><button data-f="시즌" data-l="시즌">시즌</button><button data-f="1회" data-l="1회">1회</button></div></div>
     <div id="summary"></div>
     <div class="list" id="list"></div>
@@ -64,5 +68,5 @@
 </main>
 <div id="toast" class="toast"></div>
 <div id="sheet" class="sheet"><div class="sheet-body" id="sheetBody"></div></div>
-<script src="core.js?v=14"></script><script src="insights.js?v=14"></script><script src="sample.js?v=14"></script><script src="app.js?v=14"></script><script src="dash.js?v=14"></script><script src="products.js?v=14"></script>
+<script src="core.js?v=15"></script><script src="insights.js?v=15"></script><script src="sample.js?v=15"></script><script src="app.js?v=15"></script><script src="dash.js?v=15"></script><script src="products.js?v=15"></script>
 </body></html>

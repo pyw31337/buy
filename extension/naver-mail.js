@@ -81,6 +81,7 @@ async function strategyApi() {
         RAW.push(mail); orders.push(...r);
         const kind = LetsBuy.mailKind(mail.subject, ''); STATS.kinds[kind] = (STATS.kinds[kind] || 0) + 1; mail.kind = kind;
         if (r.length) { STATS.parsed++; if (r[0].status) STATS.backs++; STATS.perMall[r[0].mall] = (STATS.perMall[r[0].mall] || 0) + r.length; }
+        else if (mall !== '기타' && (kind === 'shipping' || kind === 'delivered')) { STATS.notice = (STATS.notice || 0) + 1; }
         else if (mall !== '기타' && LetsBuy.FAILS.has(kind)) { STATS.noItems++; mail.fail = 1; STATS.failMall[mall] = (STATS.failMall[mall] || 0) + 1; }
       } catch (e) { if (++STATS.readFail <= 5) diag('api-read', false, e.message); }
     }));

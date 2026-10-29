@@ -70,8 +70,8 @@
       <span class="vb" style="--v:${VC[p.verdict.k]}">${esc(p.verdict.t)}</span>
       <span class="pimg">${photo(p, 148)}</span>
       <b class="pname">${esc(p.name)}</b>
-      <span class="pmeta">${p.count}회 구매 · 내 마지막 ${p.myLast ? fmt(p.myLast.price) : '–'}</span>
-      ${p.now ? `<span class="pnow">${lg(p.now.src, 20)}<b>${fmt(p.now.price)}</b>${pct(p.vsMine, '내 가격')}</span>` : `<span class="pnow none">${W('svg')('search', 16)} 현재가 모으는 중</span>`}
+      <span class="pmeta"><em class="mt">내 기록</em>${p.count}회 · 마지막 ${p.myLast ? fmt(p.myLast.price) : '–'}</span>
+      ${p.now ? `<span class="pnow"><i class="ld"></i>${lg(p.now.src, 20)}<b>${fmt(p.now.price)}</b>${pct(p.vsMine, '내 가격')}</span>` : `<span class="pnow none">${W('svg')('search', 16)} 현재가 모으는 중</span>`}
       ${spark(sp)}
     </button>`;
   }
@@ -91,9 +91,9 @@
     const nb = list.filter(p => p.verdict.k === 'buy').length, ns = list.filter(p => p.verdict.k === 'soon').length, nw = list.filter(p => p.verdict.k === 'wait').length;
     const cats = [...new Set(base.map(p => p.cat))];
     el.innerHTML = `${chips(d)}${W('photoBar')()}
-      <div class="phead"><h1>${W('plat')() ? `${W('logo')(W('plat')(), 28)} ${esc(W('plat')())}에서 ` : ''}자주 사는 제품</h1>
+      <div class="phead"><h1>${W('plat')() ? `${W('logo')(W('plat')(), 28)} ${esc(W('plat')())}에서 ` : ''}지금 살 것</h1>${W('liveTag')()}
         <div class="vsum"><span style="--v:${VC.buy}"><b>${nb}</b>지금 사세요</span><span style="--v:${VC.soon}"><b>${ns}</b>곧 떨어져요</span><span style="--v:${VC.wait}"><b>${nw}</b>기다리세요</span></div></div>
-      <div class="ctabs"><button class="ct ${catF ? '' : 'on'}" data-c="">전체 ${base.length}</button>${cats.map(c => `<button class="ct ${catF === c ? 'on' : ''}" data-c="${esc(c)}">${esc(c)} ${base.filter(p => p.cat === c).length}</button>`).join('')}<span class="sp"></span><button class="ct" id="viewT">${view === 'rep' ? '1번 산 것도 보기' : '자주 산 것만'}</button></div>
+      <div class="ctabs"><button class="ct ${catF ? '' : 'on'}" data-c=""><span>전체</span><i class="n">${base.length}</i></button>${cats.map(c => `<button class="ct ${catF === c ? 'on' : ''}" data-c="${esc(c)}"><span>${esc(c)}</span><i class="n">${base.filter(p => p.cat === c).length}</i></button>`).join('')}<span class="sp"></span><button class="ct" id="viewT">${view === 'rep' ? '1번 산 것도 보기' : '자주 산 것만'}</button></div>
       <div class="pgrid">${list.slice(0, 120).map(card).join('') || '<div class="empty">없어요</div>'}</div>`;
     bind(el); W('bindPhoto')(el);
     el.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { catF = b.dataset.c || null; render(); });
@@ -116,9 +116,11 @@
       ${ticks.map(t => `<text x="${x(t)}" y="${h - 8}" font-size="11" text-anchor="middle" fill="#9A9AA3">${iso(t).slice(2, 7).replace('-', '.')}</text>`).join('')}
       ${line ? `<path d="${line}" fill="none" stroke="#FF5A36" stroke-width="2.4"/>` : ''}
       ${p.avg ? `<line x1="${x(day(p.series[0].date))}" x2="${w - 16}" y1="${y(p.avg)}" y2="${y(p.avg)}" stroke="#FF5A36" stroke-dasharray="3 4" opacity=".5"/>` : ''}
-      ${pts.map(o => `<g><title>${o.date} ${o.mall} ${fmt(o.price)}</title><circle cx="${x(day(o.date))}" cy="${y(o.price)}" r="6" fill="#16161A" stroke="#fff" stroke-width="2"/></g>`).join('')}
+      ${pts.length > 1 ? `<path d="${pts.map((o, i) => `${i ? 'L' : 'M'}${x(day(o.date))},${y(o.price)}`).join('')}" fill="none" stroke="#B9B9C0" stroke-width="1.6"/>` : ''}
+      ${pts.map(o => `<g><title>${o.date} ${o.mall} ${fmt(o.price)}</title><circle cx="${x(day(o.date))}" cy="${y(o.price)}" r="5" fill="#8E8E96" stroke="#fff" stroke-width="2"/></g>`).join('')}
+      ${p.series.length ? (l => `<circle class="pulse" cx="${x(day(l.date))}" cy="${y(l.price)}" r="11" fill="#FF5A36" opacity=".25"/><circle cx="${x(day(l.date))}" cy="${y(l.price)}" r="5.5" fill="#FF5A36" stroke="#fff" stroke-width="2"/>`)(p.series[p.series.length - 1]) : ''}
       ${p.nextDip ? `<line x1="${x(t1)}" x2="${x(t1)}" y1="14" y2="${h - 30}" stroke="#2F6FEB" stroke-dasharray="2 3"/>` : ''}
-    </svg><div class="lg"><span><i class="dot"></i>내가 산 가격</span><span><i style="background:#FF5A36"></i>현재 최저가(매일)</span>${p.avg ? '<span><i class="dash"></i>최근 평균</span>' : ''}</div>`;
+    </svg><div class="lg"><span class="lpast"><i class="dot"></i>내 기록 · 내가 산 가격</span><span class="llive"><i style="background:#FF5A36"></i>실시간 · 매일 최저가</span>${p.avg ? '<span><i class="dash"></i>최근 평균</span>' : ''}</div>`;
   }
   function detail(key) {
     const p = lastList.find(x => x.key === key) || build(W('data')(), { cats: W('store')().cats }).find(x => x.key === key); if (!p) return;
@@ -126,7 +128,7 @@
     const u = I && p.myLast ? I.unitPrice(p.name, p.myLast.price, 1) : null, s0 = I && I.sizeOf(p.name), sh = p.sources.find(x => x.title && I && I.sizeOf(x.title)), s1 = sh && I.sizeOf(sh.title);
     const shrink = s0 && s1 && s0.unit === s1.unit && s1.total < s0.total ? Math.round((1 - s1.total / s0.total) * 100) : 0;
     const el = document.getElementById('pdBody');
-    el.innerHTML = `<button class="back" id="pdBack">← 내 제품</button>
+    el.innerHTML = `<button class="back" id="pdBack">← 살 때</button>
       <div class="pdtop"><div class="pdimg">${photo(p, 260)}</div>
         <div class="pdinfo"><span class="vb lg" style="--v:${VC[p.verdict.k]}">${esc(p.verdict.t)}</span><h1>${esc(p.name)}</h1>
           <p class="say">${esc(p.say)}</p>

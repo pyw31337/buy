@@ -55,9 +55,9 @@
     const TN = { up: '#E5484D', down: '#1F9D63', hot: '#FF5A36', warn: '#B7791F', '': '#16161A' };
     el.innerHTML = `
       ${window.prodChips ? window.prodChips() : ''}
-      ${A.notes.length ? `<div class="notes">${A.notes.map(n => `<button class="note ${n.tone}" ${n.key ? `data-k="${esc(n.key)}"` : n.cat ? `data-cat="${esc(n.cat)}"` : n.mall ? `data-plat="${esc(W('platOf')(n.mall))}"` : n.m ? `data-m="${esc(n.m)}"` : ''}><span class="ni" style="color:${TN[n.tone]}">${svg(n.icon, 18)}</span><b style="color:${TN[n.tone]}">${esc(n.big)}</b><span>${esc(n.text)}</span></button>`).join('')}</div>` : ''}
+      ${A.notes.length ? `<div class="notes">${A.notes.map(n => `<button class="note ${n.tone}" ${n.key ? `data-k="${esc(n.key)}"` : n.cat ? `data-cat="${esc(n.cat)}"` : n.mall ? `data-plat="${esc(W('platOf')(n.mall))}"` : n.m ? `data-m="${esc(n.m)}"` : ''}><span class="nl"><span class="ni" style="color:${TN[n.tone]}">${svg(n.icon, 16)}</span>${esc(n.text)}</span><b style="color:${TN[n.tone]}">${esc(n.big)}</b></button>`).join('')}</div>` : ''}
       ${(() => { const etc = A.items.filter(i => i.cat === '기타' && !st.cats[i.key]); return etc.length ? `<div class="aibar"><span>${svg('package', 16)} 분류 못 한 품목 <b>${etc.length}</b>개</span><button class="btn sm" id="aiCat">${svg('sparkles', 15)} 로컬 AI로 분류</button><button class="btn sm ghost" id="etcList">보기</button><small id="aiCatMsg">내 컴퓨터의 Ollama로 · 데이터는 밖으로 안 나가요</small></div>` : ''; })()}
-      <div class="kpis">${kpi.map(([ic, l, v, s], i) => `<div class="kpi" ${i < 2 ? `data-m="${A.monthly[A.monthly.length - 1].m}"` : 'data-go="prod"'}><span class="ki">${svg(ic, 20)}</span><span class="kl">${l}</span><b>${v}</b><small>${s}</small></div>`).join('')}</div>
+      <div class="kpis">${kpi.map(([ic, l, v, s], i) => `<div class="kpi" ${i < 2 ? `data-m="${A.monthly[A.monthly.length - 1].m}"` : 'data-go="prod"'}><span class="kl"><span class="ki">${svg(ic, 16)}</span>${l}</span><b>${v}</b><small>${s}</small></div>`).join('')}</div>
       <div class="dg">
         <section class="pn wide"><h3>${svg('chart', 18)} 월별 지출 <small>${peak ? `가장 많이 쓴 달 ${peak.m.replace('-', '.')} · ${won(peak.spend)}` : ''}</small></h3>${bars(A.monthly)}</section>
         <section class="pn"><h3>${svg('pie', 18)} 무엇에 썼나</h3>${donut(A.byCat, A.total.spend)}</section>

@@ -1,0 +1,25 @@
+{
+ "name": "렛츠바이",
+ "short_name": "렛츠바이",
+ "start_url": "./",
+ "display": "standalone",
+ "background_color": "#F7F6F3",
+ "theme_color": "#0A1C38",
+ "icons": [
+  {
+   "src": "brand/favicon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "brand/favicon-512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  },
+  {
+   "src": "brand/letsbuy-icon.svg",
+   "sizes": "any",
+   "type": "image/svg+xml"
+  }
+ ]
+}

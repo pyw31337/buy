@@ -46,9 +46,18 @@ async function saveOrders(list, mails) {
   const box = st.mails || [], ids = new Set(box.map(m => m.id));
   for (const m of mails || []) if (m.id && !ids.has(m.id)) { box.push({ ...m, html: slim(m.html) }); ids.add(m.id); }
   const other = (st.orders || []).filter(o => o.source && o.source !== 'mail').concat((list || []).filter(o => o.source !== 'mail'));
-  const fromMail = box.flatMap(m => { try { return LetsBuy.parseMail(m); } catch { return []; } });
+  // 보관한 모든 메일로 개수를 다시 셈(이번 수집분만 세던 v0.12까지의 불일치 해결)
+  const ms = { mails: box.length, ordersMail: 0, parsed: 0, notice: 0, fail: 0, kinds: {}, failMall: {}, noticeMall: {} };
+  const fromMail = box.flatMap(m => {
+    let r = []; try { r = LetsBuy.parseMail(m); } catch {}
+    const kind = LetsBuy.mailKind(m.subject, ''), mall = LetsBuy.detectMall(m.subject, m.from); ms.kinds[kind] = (ms.kinds[kind] || 0) + 1;
+    if (r.length) { ms.parsed++; ms.ordersMail++; }
+    else if (mall !== '기타' && (kind === 'shipping' || kind === 'delivered')) { ms.notice++; ms.noticeMall[mall] = (ms.noticeMall[mall] || 0) + 1; } // 배송 알림: 같은 주문을 주문 메일에서 이미 셈
+    else if (mall !== '기타' && LetsBuy.FAILS.has(kind)) { ms.fail++; ms.ordersMail++; ms.failMall[mall] = (ms.failMall[mall] || 0) + 1; m.fail = 1; }
+    return r;
+  });
   const orders = LetsBuy.dedupe(other.concat(fromMail));
-  await chrome.storage.local.set({ orders, mails: box, parser: chrome.runtime.getManifest().version });
+  await chrome.storage.local.set({ orders, mails: box, mailStats: ms, parser: chrome.runtime.getManifest().version });
   diag('save', true, `mails=${box.length} orders=${orders.length}`);
   return orders.length;
 }
@@ -115,7 +124,7 @@ async function collectPrices() {
     }
     prices[it.key] = arr.slice(-1500);
   }
-  await chrome.storage.local.set({ prices, pricedAt: today });
+  await chrome.storage.local.set({ prices, pricedAt: today, pricedTs: new Date().toISOString() });
   diag('prices', ok > 0 || !items.length, `ok=${ok}/${items.length} fails=${JSON.stringify(fails)} shops=${JSON.stringify(st)}`);
   return { ok, total: items.length, fails };
 }
