@@ -154,3 +154,6 @@ gh release create vX.Y.Z docs/letsbuy-extension.zip -t vX.Y.Z -n "..."
 - 아이콘: 주황 가죽 가방 + 음각 'Let's' (배경 제거본 `docs/brand/letsbuy-bag.png`). favicon.ico(16/32/48), favicon-16~512, apple-touch(180, 밝은 배경), maskable-512(네이비 풀블리드), 확장 icons 16/32/48/128, 헤더 로고(favicon-192).
 - OG: `docs/og-image.png` 1200x630 (베이지 벽·나무 배경, 좌측 'Lets Buy' + 한 줄 설명). 메타 태그 `?v=0142` 캐시버스트, og:image:width/height, twitter:image 추가.
 - 원본 생성 스크립트: rembg(isnet-general-use) + Pillow. 기존 SVG 아이콘 링크는 제거(파일은 남김).
+
+## v0.14.3 — OG 이미지 최종
+- `docs/og-image.png`: 그래프 배경 + 가방 앞 휴대폰·영수증, 좌상단 "Let’s Buy" 한 줄(Great Vibes, #B03E1A), 부제 '쇼핑분석으로 더 스마트한 쇼핑을'(Pretendard ExtraBold, #5C3A2A). og 캐시버스트 `?v=0143`.
