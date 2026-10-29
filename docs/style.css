@@ -245,3 +245,12 @@ code{font-size:12px;background:#F0EFEB;padding:2px 6px;border-radius:6px;word-br
 .mcr{display:grid;grid-template-columns:36px minmax(120px,240px) 1fr;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}.mcr>b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mcc{display:flex;flex-wrap:wrap;gap:4px 14px}.mcc button{border:0;background:none;padding:4px 0;font:inherit;font-size:13px;color:var(--ink2);cursor:pointer;border-bottom:1px solid transparent}.mcc button:hover{color:var(--accent);border-bottom-color:var(--accent)}
 @media(max-width:640px){.mcr{grid-template-columns:36px 1fr}.mcc{grid-column:1/-1}}
+
+/* 고급 메뉴 개선 */
+.advwrap{display:flex;flex-direction:column;gap:24px;margin-top:16px;max-width:720px}
+.advsec{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.advsec.primary{border-color:#0A1C38;background:#F8FAFC}
+.advsec h3{margin:0 0 6px;font-size:16px;font-weight:700}
+.advsec .hint{margin:4px 0 12px;font-size:13px;color:var(--ink2)}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.advsec input,.advsec textarea{width:100%;margin-bottom:8px;box-sizing:border-box}
