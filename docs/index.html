@@ -50,14 +50,14 @@
   <section id="pd" class="tab"><div id="pdBody"></div></section>
   <section id="dash" class="tab"><div class="dhead"><h1>내 소비</h1><span id="dashRange"></span></div><div id="dashBody"></div></section>
   <section id="items" class="tab">
-    <div class="dhead"><h1>구매 기록</h1><span id="itemsRange"></span></div>
+    <div class="dhead"><h1>구매 기록</h1><span id="itemsRange"></span><a href="#adv" onclick="document.querySelector('.adv').open=true;return false;" style="margin-left:12px;font-size:13px;color:#777">백업/복원</a></div>
     <div class="toolbar"><input id="q" placeholder="검색"><div class="seg" id="filter"><button data-f="all" data-l="전체" class="on">전체</button><button data-f="재구매" data-l="재구매">재구매</button><button data-f="주기" data-l="주기">주기</button><button data-f="시즌" data-l="시즌">시즌</button><button data-f="1회" data-l="1회">1회</button></div></div>
     <div id="summary"></div>
     <div class="list" id="list"></div>
     <label class="drop emlDrop"><input type="file" accept=".eml,message/rfc822" multiple hidden><span class="sic" data-i="mail"></span><span><b>.eml 파일 끌어다 놓기</b><br><small>메일함에서 내려받은 주문 메일을 여기에 놓거나 눌러서 고르세요 · 이 브라우저 안에서만 읽어요</small></span><em class="emlMsg"></em></label>
     <div class="samplebar"><span>결과가 이상하면 샘플을 보내 주세요 · 이름·전화·주소·주문번호는 자동으로 가려요</span><button class="btn ghost sampleBtn"><span data-i="download"></span> 메일 샘플 내려받기</button></div>
   </section>
-  <details class="adv"><summary>고급</summary>
+  <details class="adv" id="adv"><summary>고급</summary>
     <div class="advgrid">
       <div><b>메일 붙여넣기</b><input id="pSubject" placeholder="제목"><input id="pDate" type="date"><textarea id="pBody" rows="4" placeholder="본문"></textarea><button id="addPaste" class="btn sm">추가</button><p id="pasteMsg" class="hint"></p></div>
       <div><b>데이터 백업 / 복원</b>
