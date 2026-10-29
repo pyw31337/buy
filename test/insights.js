@@ -19,3 +19,23 @@ eq((LetsBuy.bestMatch('코디 3겹 30m 30롤', LetsBuy.parseSearch('쿠팡', cp)
 eq((LetsBuy.bestMatch('삼다수 2L 12병', LetsBuy.parseSearch('네이버', '{"productTitle":"제주 삼다수 2L 12병","lowPrice":"6980"}')) || {}).price, 6980, 'naver parse+match');
 eq(A.notes.length >= 5, true, 'notes ' + A.notes.length); eq(A.market.some(m => m.shrink), true, 'listing shrink');
 if (bad) process.exit(1); console.log('PRICE ALL PASS');
+
+// v0.11 내 제품: 판단 배지·플랫폼 필터·사진 대체·쇼핑 분류
+{
+  const assert = require('assert');
+  global.LetsBuy = require('../docs/core.js'); global.LetsBuyInsights = require('../docs/insights.js');
+  const P = require('../docs/products.js'), d = require('./synth11.js')('2026-10-29');
+  const r = P.build({ ...d, today: '2026-10-29' });
+  const ks = new Set(r.map(p => p.verdict.k));
+  assert(ks.has('buy') && ks.has('soon') && ks.has('wait'), 'verdict kinds ' + [...ks]);
+  assert(r[0].verdict.k === 'buy', 'buy first');
+  const pig = r.find(p => p.name.startsWith('피죤')); assert(pig.img && pig.img.includes('pigeon'), 'img from listing');
+  assert(pig.sources.length === 4 && pig.sources[0].price <= pig.sources[3].price, 'sources sorted');
+  const c = r.find(p => p.name.startsWith('쿠')); 
+  const cp = P.build({ ...d, today: '2026-10-29', orders: d.orders.filter(o => o.mall === '쿠팡'), plat: '쿠팡' });
+  assert(cp.every(p => p.sources.every(s => s.src === '쿠팡')), 'platform filter');
+  assert.deepStrictEqual(LetsBuyInsights.categorize('프링글스 오리지널').main, '식품');
+  const A = LetsBuyInsights.insights([{ name: '이름모를 상품 Z', mall: '쿠팡', price: 1000, date: '2026-01-01' }], { today: '2026-10-29', prices: { '이름모를 상품 Z': [{ date: '2026-10-28', price: 900, src: '네이버', cat: '생활/건강>세탁세제' }] } });
+  assert.strictEqual(A.items[0].cat, '생활용품', 'shop category fallback');
+  console.log('products OK');
+}

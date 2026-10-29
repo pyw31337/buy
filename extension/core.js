@@ -239,11 +239,12 @@
         if (/ad-badge|AdMark|광고/.test(p.slice(0, 1500)) && out.length) continue;
         const t = (p.match(/class="[^"]*(?:\bname\b|productName)[^"]*"[^>]*>([\s\S]*?)<\/div>/) || [])[1];
         const v = (p.match(/class="[^"]*(?:price-value|priceValue|Price_priceValue)[^"]*"[^>]*>\s*([0-9,]+)/) || p.match(/<strong[^>]*>\s*([0-9]{1,3}(?:,[0-9]{3})+)\s*<\/strong>\s*원?/) || [])[1];
-        if (t && v) out.push({ title: unesc(t), price: +v.replace(/,/g, '') });
+        const im = (p.match(/<img[^>]+(?:data-img-src|data-src|src)="([^"]+(?:thumbnail|image)[^"]*)"/i) || [])[1], u = (p.match(/href="(\/vp\/products\/[^"]+)"/) || [])[1];
+        if (t && v) out.push({ title: unesc(t), price: +v.replace(/,/g, ''), img: im ? (im.startsWith('//') ? 'https:' + im : im) : null, url: u ? 'https://www.coupang.com' + u.replace(/&amp;/g, '&') : null });
       }
     } else if (src === '네이버') {
       const re = /"productTitle"\s*:\s*"((?:[^"\\]|\\.)*)"[\s\S]{0,2500}?"(?:lowPrice|price|mobileLowPrice)"\s*:\s*"?(\d{3,})/g; let m;
-      while ((m = re.exec(h)) && out.length < 20) out.push({ title: unesc(m[1]), price: +m[2] });
+      while ((m = re.exec(h)) && out.length < 20) { const seg = h.slice(Math.max(0, m.index - 3000), m.index + 3000), g = k => ((seg.match(new RegExp('"' + k + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"')) || [])[1]); out.push({ title: unesc(m[1]), price: +m[2], img: g('imageUrl') ? unesc(g('imageUrl')).replace(/\\\//g, '/') : null, url: g('crUrl') || g('mallProductUrl') ? unesc(g('crUrl') || g('mallProductUrl')).replace(/\\\//g, '/') : null, cat: g('category1Name') ? unesc(g('category1Name')) + '>' + unesc(g('category2Name') || '') : null }); }
       if (!out.length) { const re2 = /class="[^"]*product_title[^"]*"[^>]*>([\s\S]*?)<\/[a-z]+>[\s\S]{0,3000}?class="[^"]*price_num[^"]*"[^>]*>[\s\S]*?([0-9]{1,3}(?:,[0-9]{3})+)/g; while ((m = re2.exec(h)) && out.length < 20) out.push({ title: unesc(m[1]), price: +m[2].replace(/,/g, '') }); }
     }
     return out.filter(x => x.title && x.price >= 100).slice(0, 20);

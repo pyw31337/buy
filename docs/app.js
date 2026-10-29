@@ -7,7 +7,10 @@
   let filter = 'all', catF = null;
   const save = () => { localStorage.setItem(KEY, JSON.stringify(store)); window.postMessage({ app: 'letsbuy-web', type: 'aliases', aliases: store.aliases }, location.origin); };
   const kToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-  const data = () => demo ? { ...LETSBUY_SAMPLE, aliases: {} } : { ...store, today: kToday() };
+  let plat = null; // 플랫폼 필터: 누르면 그 곳에서 산 것만으로 모든 화면을 다시 구성
+  const platOf = m => /네이버|스마트스토어|N ?pay/i.test(m || '') ? '네이버' : /컬리/.test(m || '') ? '컬리' : /롯데ON|롯데온/i.test(m || '') ? '롯데ON' : /배민|배달의민족/.test(m || '') ? '배민' : String(m || '').replace(/\s*최저$/, '');
+  const raw = () => demo ? { ...LETSBUY_SAMPLE, aliases: {} } : { ...store, today: kToday() };
+  const data = () => { const d = raw(); return plat ? { ...d, orders: d.orders.filter(o => platOf(o.mall) === plat), plat } : d; };
   const items = () => { const d = data(); return LetsBuy.analyze(d.orders, d.today, d.aliases); };
   const fmt = n => n == null ? '-' : n.toLocaleString('ko-KR') + '원';
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -57,7 +60,10 @@
   const catOf = n => CAT.find(([re]) => re.test(n)) || (window.LetsBuyInsights && (c => CI2[c.main] ? [0, CI2[c.main], LetsBuyInsights.COLORS[c.main] + '1F'] : null)(LetsBuyInsights.categorize(n))) || [0, 'package', '#F1F0EC'];
   const thumb = (it, sz = 64) => it.img ? `<img class="th" style="width:${sz}px;height:${sz}px" src="${esc(it.img)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<span class=&quot;th ico&quot; style=&quot;width:${sz}px;height:${sz}px&quot;>${svg('package').replace(/"/g, '&quot;')}</span>'">` : (([, k, bg]) => `<span class="th ico" style="width:${sz}px;height:${sz}px;background:${bg}">${svg(k, sz * .45)}</span>`)(catOf(it.name));
   const MC = { '쿠팡': '#E3262D', '네이버페이': '#03C75A', 'G마켓': '#2E7D32', '옥션': '#D32F2F', '11번가': '#FF0038', 'SSG': '#E2007E', '마켓컬리': '#5F0080', '컬리': '#5F0080', '오늘의집': '#35C5F0', '무신사': '#000', '알리익스프레스': '#E43225' };
-  const mallChip = m => `<span class="mall" style="--c:${MC[m] || '#77777F'}">${esc(m === '네이버페이' ? 'N pay' : m)}</span>`;
+  const LOGO = { '쿠팡': 'coupang', '네이버': 'npay', '네이버페이': 'npay', '네이버쇼핑': 'naver', 'G마켓': 'gmarket', '옥션': 'auction', '11번가': '11st', 'SSG': 'ssg', '마켓컬리': 'kurly', '컬리': 'kurly', '롯데ON': 'lotteon', '배민': 'baemin', '메가마트': 'megamart', '오늘의집': 'ohou', '다나와': 'danawa', '에누리': 'enuri' };
+  const logo = (m, sz = 18) => { const k = LOGO[m] || LOGO[platOf(m)]; return k ? `<img class="lg-i" src="logos/${k}.png" width="${sz}" height="${sz}" alt="${esc(m)}">` : `<span class="lg-i lg-t" style="width:${sz}px;height:${sz}px;background:${MC[m] || '#77777F'}">${esc(String(m || '?').slice(0, 1))}</span>`; };
+  const mallName = m => m === '네이버페이' ? '네이버' : platOf(m);
+  const mallChip = m => `<span class="mall" style="--c:${MC[m] || '#77777F'}">${logo(m, 14)}${esc(mallName(m))}</span>`;
   function ring(it, sz = 58) {
     const r = sz / 2 - 5, C = 2 * Math.PI * r, f = it.type === '시즌' ? 1 - Math.max(0, it.daysLeft) / 365 : 1 - it.daysLeft / (it.avgGap || 1);
     const p = Math.max(0.03, Math.min(1, f)), col = it.type !== '시즌' && it.daysLeft < -Math.max(3 * (it.avgGap || 30), 90) ? '#B5B5BC' : it.daysLeft < 0 ? '#FF5A36' : it.daysLeft <= 14 ? '#FF9F43' : '#1F9D63';
@@ -101,7 +107,7 @@
   function render() {
     const d = data(), items = LetsBuy.analyze(d.orders, d.today, d.aliases);
     const has = !!(store.orders.length || demo);
-    $('[data-tab=recs]').style.display = $('[data-tab=items]').style.display = $('[data-tab=dash]').style.display = has ? '' : 'none';
+    $('[data-tab=prod]').style.display = $('[data-tab=items]').style.display = $('[data-tab=dash]').style.display = has ? '' : 'none';
     if (!has && cur !== 'home') go('home');
     $('#mode').innerHTML = demo ? '<b>데모</b> <button class="link" id="exitDemo">끄기</button>' : store.orders.length ? `주문 ${store.orders.length}건` : '';
     if ($('#exitDemo')) $('#exitDemo').onclick = () => { demo = false; render(); if (!store.orders.length) go('home'); };
@@ -119,6 +125,7 @@
     $$('#filter button').forEach(b => { const f = b.dataset.f, n = f === 'all' ? all.length : f === '재구매' ? all.filter(i => i.count >= 2).length : f === '1회' ? all.filter(i => i.count === 1).length : all.filter(i => i.type.startsWith(f)).length; b.textContent = b.dataset.l + ' ' + n; });
     $('#summary').innerHTML = summary(d.orders) + (catF ? `<button class="catf" id="catf">${esc(catF)} ×</button>` : '');
     if (cur === 'dash' && window.renderDash) window.renderDash();
+    if (cur === 'prod' && window.renderProd) window.renderProd();
     $('#list').innerHTML = rows.map(i => `<div class="lrow" data-k="${esc(i.key)}">${thumb(i, 44)}<div class="lmain"><b>${esc(i.name)}</b><div class="chips">${i.malls.map(mallChip).join('')}<span class="cnt">${i.count >= 2 ? i.count + '회 · ' + i.avgGap + '일 간격' : '1회 · ' + i.last}</span></div></div>${i.count >= 2 ? ring(i, 44) : `<span class="once">${i.prices.length ? fmt(i.prices[0].price) : ''}</span>`}</div>`).join('') || '<div class="empty">없어요</div>';
     if ($('#failBtn')) $('#failBtn').onclick = () => { if (!extInfo) { toast('확장이 연결되어 있어야 해요'); return; } sampleMode = 'fail'; window.postMessage({ app: 'letsbuy-web', type: 'mails' }, location.origin); };
     if ($('#catf')) $('#catf').onclick = () => { catF = null; render(); };
@@ -172,10 +179,21 @@
   }
   $('#sheet').onclick = e => { if (e.target.id === 'sheet') e.target.classList.remove('on'); };
   let cur = 'home';
-  window.LB_UI = { toast: t => toast(t), saveStore: () => save(), fmt, svg, thumb, esc, mallChip, data, store: () => store,
+  // 로컬 AI: 확장을 거쳐 부름(웹페이지에서 직접 부르면 Ollama가 403으로 막음). 확장이 없으면 직접 시도
+  let oid = 0; const owait = {};
+  window.addEventListener('message', e => { if (e.source === window && e.data && e.data.app === 'letsbuy-ext' && e.data.type === 'ollama' && owait[e.data.id]) { owait[e.data.id](e.data); delete owait[e.data.id]; } });
+  async function ollama(prompt, model, op) {
+    if (extInfo) return new Promise(res => { const id = ++oid; owait[id] = res; window.postMessage({ app: 'letsbuy-web', type: 'ollama', id, op, model, prompt }, location.origin); setTimeout(() => { if (owait[id]) { delete owait[id]; res({ ok: false, why: 'old' }); } }, op === 'ping' ? 4000 : 180000); });
+    try { const r = await fetch('http://127.0.0.1:11434/api/chat', { method: 'POST', body: JSON.stringify({ model: model || 'qwen2.5:3b', stream: false, format: 'json', messages: [{ role: 'user', content: prompt }] }) }); if (!r.ok) return { ok: false, why: r.status === 403 ? 'origin' : 'http' + r.status }; return { ok: true, content: (await r.json()).message.content }; } catch { return { ok: false, why: 'noext' }; }
+  }
+  const OLLAMA_HELP = { down: 'Ollama가 꺼져 있어요 · 설치 후 실행해 주세요', nomodel: '모델이 없어요 · 터미널에서 ollama pull qwen2.5:3b', origin: 'Ollama가 요청을 막았어요 · 확장 v0.11로 업데이트해 주세요', noext: '확장 v0.11을 설치하면 설정 없이 돼요', old: '확장을 v0.11로 업데이트해 주세요', ext: '확장을 다시 불러와 주세요' };
+  window.LB_UI = { toast: t => toast(t), saveStore: () => save(), fmt, svg, thumb, esc, mallChip, data, raw, logo, platOf, mallName, ollama, OLLAMA_HELP, store: () => store, isDemo: () => demo,
+    plat: () => plat, setPlat: p => { plat = plat === p ? null : p; render(); if (window.renderProd) window.renderProd(); if (cur === 'dash' && window.renderDash) window.renderDash(); },
+    go: t => go(t), rerender: () => render(),
     openKey: k => { const d = data(), it = LetsBuy.analyze(d.orders, d.today, d.aliases, { all: true }).find(i => i.key === k); if (it) open(it, d); },
     filterCat: c => { catF = c; filter = 'all'; $$('#filter button').forEach(b => b.classList.toggle('on', b.dataset.f === 'all')); go('items'); render(); } };
-  function go(t) { cur = t; if (t === 'dash' && window.renderDash) setTimeout(window.renderDash); $$('#tabs button,.tab').forEach(e => e.classList.remove('on')); $('[data-tab=' + t + ']').classList.add('on'); $('#' + t).classList.add('on'); if (location.hash !== '#' + t) history.replaceState(null, '', '#' + t); scrollTo(0, 0); }
+  function go(t) { cur = t; if (t === 'dash' && window.renderDash) setTimeout(window.renderDash); if (t === 'prod' && window.renderProd) setTimeout(window.renderProd); $$('#tabs button,.tab').forEach(e => e.classList.remove('on')); const tb = $('[data-tab=' + t + ']'); if (tb) tb.classList.add('on'); else $('[data-tab=prod]').classList.add('on'); $('#' + t).classList.add('on'); if (location.hash !== '#' + t) history.replaceState(null, '', '#' + t); scrollTo(0, 0); }
+  addEventListener('load', () => setTimeout(() => scrollTo(0, 0), 0)); // 주소의 #prod 같은 앵커로 저절로 내려가는 것 막기
   $$('#tabs button').forEach(b => b.onclick = () => go(b.dataset.tab));
   $('.brand').onclick = e => { e.preventDefault(); go('home'); };
   $$('#filter button').forEach(b => b.onclick = () => { $$('#filter button').forEach(e => e.classList.remove('on')); b.classList.add('on'); filter = b.dataset.f; render(); });
@@ -185,7 +203,7 @@
     orders = LetsBuy.dedupe(orders || []);
     const seen = new Set(store.orders.map(o => o.date + o.name));
     for (const o of orders || []) if (!seen.has(o.date + o.name)) { store.orders.push(o); seen.add(o.date + o.name); }
-    for (const [k, v] of Object.entries(prices || {})) { const m = new Map((store.prices[k] || []).map(p => [p.date, p])); v.forEach(p => m.set(p.date, p)); store.prices[k] = [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1); }
+    for (const [k, v] of Object.entries(prices || {})) { const id = p => p.date + '|' + (p.src || p.mall); const m = new Map((store.prices[k] || []).map(p => [id(p), p])); v.forEach(p => m.set(id(p), p)); store.prices[k] = [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1); }
     store.orders = LetsBuy.dedupe(store.orders); save(); demo = false; render();
   }
 
@@ -217,10 +235,10 @@
   $('#export').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(store, null, 1)], { type: 'application/json' })); a.download = 'letsbuy-backup.json'; a.click(); };
   $('#reset').onclick = () => { if (confirm('모두 지울까요?')) { store = { orders: [], prices: {}, aliases: {}, onboarded: true }; save(); demo = false; render(); } };
   $$('[data-i]').forEach(e => e.innerHTML = svg(e.dataset.i, e.classList.contains('sic') ? 26 : 18));
-  $('#mallRow').innerHTML = ['쿠팡', '네이버페이', 'G마켓', '옥션', '11번가', 'SSG', '마켓컬리', '오늘의집', '무신사', '알리익스프레스'].map(m => `<span class="mtile"><span class="mlogo" style="--c:${MC[m] || '#77777F'}">${esc({ '쿠팡': 'C', '네이버페이': 'N', 'G마켓': 'G', '옥션': 'A', '11번가': '11', 'SSG': 'S', '마켓컬리': 'K', '오늘의집': 'O', '무신사': 'M', '알리익스프레스': 'Ali' }[m])}</span>${esc(m)}</span>`).join('') + '<span class="mtile more">+ Gmail · 네이버 메일</span>';
+  $('#mallRow').innerHTML = ['쿠팡', '네이버페이', 'G마켓', '옥션', '11번가', 'SSG', '마켓컬리', '롯데ON', '오늘의집', '메가마트', '배민'].map(m => `<span class="mtile">${logo(m, 28)}${esc(mallName(m))}</span>`).join('') + '<span class="mtile more">+ Gmail · 네이버 메일</span>';
   { const sd = { ...LETSBUY_SAMPLE, aliases: {} }; $('#mockCards').innerHTML = LetsBuy.analyze(sd.orders, sd.today, {}).slice(0, 3).map(i => card(i, sd)).join(''); }
-  go(store.orders.length && location.hash !== '#home' ? (['recs', 'items', 'dash'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'recs') : 'home');
-  $('#demo').onclick = () => { demo = true; render(); go('recs'); };
+  go(store.orders.length && location.hash !== '#home' ? (['prod', 'items', 'dash'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'prod') : 'home');
+  $('#demo').onclick = () => { demo = true; render(); go('prod'); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
   let extInfo = null, extLog = [];
   window.addEventListener('message', e => {
@@ -239,8 +257,8 @@
     if (!names.length) return toast('주문이 없어요');
     $('#aiMsg').textContent = '정리 중…';
     try {
-      const r = await fetch('http://localhost:11434/api/chat', { method: 'POST', body: JSON.stringify({ model, stream: false, format: 'json', messages: [{ role: 'user', content: '다음은 한국 쇼핑몰 상품명 목록이다. 같은 물건(브랜드·제품이 같고 용량·개수·홍보문구만 다른 것)끼리 묶어 짧은 대표 이름을 정해라. JSON {"map": {"원래 상품명": "대표 이름"}} 으로만 답해라.\n' + names.join('\n') }] }) });
-      const j = JSON.parse((await r.json()).message.content), map = j.map || j;
+      const rr = await ollama('다음은 한국 쇼핑몰 상품명 목록이다. 같은 물건(브랜드·제품이 같고 용량·개수·홍보문구만 다른 것)끼리 묶어 짧은 대표 이름을 정해라. JSON {"map": {"원래 상품명": "대표 이름"}} 으로만 답해라.\n' + names.join('\n'), model); if (!rr.ok) { $('#aiMsg').textContent = OLLAMA_HELP[rr.why] || 'Ollama 연결 안 됨'; return; }
+      const j = JSON.parse(rr.content), map = j.map || j;
       let n = 0; for (const [k, v] of Object.entries(map)) if (names.includes(k) && typeof v === 'string' && v) { store.aliases[k] = v; n++; }
       save(); render(); $('#aiMsg').textContent = `${n}개 정리`;
     } catch (e) { $('#aiMsg').textContent = 'Ollama 연결 안 됨'; }

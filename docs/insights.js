@@ -21,7 +21,7 @@
     ['가전·디지털', '가전·디지털', R('전기포트|커피포트|에어프라이어|전자레인지|밥솥|청소기|충전기|케이블|이어폰|헤드폰|버즈|에어팟|키보드|마우스|모니터|노트북|태블릿|아이패드|아이폰|갤럭시|스피커|선풍기|서큘레이터|에어컨|가습기|제습기~|공기청정|필터~|드라이기|에어랩|고데기|전동칫솔|면도기|믹서|블렌더|토스터|와플|인덕션|하이라이트|전기그릴|정수기|냉장고|세탁기|건조기|TV~|빔프로젝터|프린터|잉크~|토너~|카메라|SD카드|메모리|보조배터리|멀티탭|어댑터|거치대|케이스~|보호필름|강화유리|스마트워치|워치~|로봇청소기|다이슨|샤오미|usb|hdmi|ssd|led|lg~|삼성~|필립스|브라운~|쿠쿠|쿠첸|테팔|드롱기|발뮤다', 'i')],
     ['주방', '주방용품', R('주걱|국자|뒤집개|집게|도마|프라이팬|후라이팬|냄비|웍~|칼~|식칼|가위~|식기|그릇|접시|공기~|대접|컵~|머그|텀블러|보온병|물병|밀폐|용기~|랩~|호일|지퍼백|위생백|위생장갑|키친|수저|젓가락|숟가락|포크|주방|채반|볼~|계량|저울|강판|필러|거름망|행주|설거지|식세기|락앤락|글라스락|코렐|해피콜|휘슬러|실리트|키친아트|타파웨어|스텐~|스테인리스|무쇠|에어프라이어\\s*종이|종이호일|이쑤시개|빨대|일회용|종이컵')],
     ['패션', '패션', R('티셔츠|반팔|긴팔|맨투맨|셔츠|블라우스|바지|팬츠|슬랙스|청바지|데님|자켓|재킷|점퍼|패딩|다운~|코트|니트|가디건|조끼|베스트~|양말|속옷|팬티|브라|런닝~|내복|잠옷|파자마|신발|운동화|스니커즈|구두|샌들|슬리퍼|크록스|부츠|모자|캡~|비니|장갑|목도리|머플러|가방|백팩|크로스백|지갑|벨트|레깅스|원피스|스커트|치마|후드|트레이닝|조거|수영복|선글라스|시계~|귀걸이|목걸이|반지|헤어핀|나이키|아디다스|뉴발란스|휠라|노스페이스|유니클로|탑텐|스파오|무신사|자라~|폴로|게스~|크록스')],
-    ['식품', '육류', R('삼겹|목살|항정|가브리|돼지|돈육|한돈|소고기|우육|한우|미국산\\s*소|호주산|갈비|등심|안심|채끝|부채살|살치|양지|사태|우둔|홍두깨|다짐육|민찌|닭~|닭가슴살|닭다리|닭봉|닭안심|닭갈비|생닭|오리(?!온)|베이컨|햄~|소시지|비엔나|차돌|우삼겹|불고기|양념육|왕구이|족발|보쌈|곱창|막창|대창|양고기|램~|스테이크|하림|마니커|허닭|아임닭')],
+    ['식품', '육류', R('삼겹|목살|항정|가브리|돼지|돈육|한돈|소고기|우육|한우|미국산\\s*소|호주산|갈비|등심|안심|채끝|부채살|살치|양지|사태|우둔|홍두깨|다짐육|민찌|닭~|닭가슴살|닭다리|닭봉|닭안심|닭갈비|생닭|오리(?!온|지널)|베이컨|햄~|소시지|비엔나|차돌|우삼겹|불고기|양념육|왕구이|족발|보쌈|곱창|막창|대창|양고기|램~|스테이크|하림|마니커|허닭|아임닭')],
     ['식품', '수산', R('새우|연어|고등어|오징어|조기|굴비|갈치|삼치|꽁치|전복|굴~|홍합|꼬막|바지락|조개|멸치|김~|조미김|재래김|광천김|미역|다시마|톳|참치~|어묵|명란|게~|대게|킹크랩|꽃게|문어|낙지|쭈꾸미|주꾸미|장어|민어|광어|우럭|회~|해물|해산물|생선|북어|황태|코다리|가자미|동태|대구~|아귀|랍스터|관자|성게|날치알|도미')],
     ['식품', '과일', R('사과|배~|감귤|귤~|한라봉|천혜향|레드향|황금향|딸기|바나나|포도|샤인머스캣|거봉|복숭아|천도|자두|살구|수박|참외|멜론|키위|골드키위|블루베리|망고|체리|자몽|오렌지|레몬|라임|아보카도|토마토|방울토마토|대추~|감~|단감|홍시|곶감|석류|무화과|파인애플|용과|리치|애플망고|과일|청포도|유자')],
     ['식품', '채소', R('양파|대파|쪽파|파~|마늘|생강|감자|고구마|당근|양배추|배추|알배기|상추|로메인|양상추|깻잎|버섯|표고|새송이|느타리|팽이|양송이|애호박|호박|단호박|오이|가지~|콩나물|숙주|시금치|브로콜리|콜리플라워|파프리카|피망|무~|열무|부추|미나리|쑥갓|청경채|고추~|청양|꽈리|연근|우엉|더덕|도라지|옥수수|아스파라거스|샐러드|채소|야채|나물|비트~|케일|루꼴라|셀러리|양배')],
@@ -31,9 +31,15 @@
     ['식품', '쌀·면·빵', R('쌀~|백미|현미|찹쌀|잡곡|귀리|오트밀|퀴노아|라면|신라면|진라면|짜파게티|불닭|너구리|안성탕면|컵라면|국수|소면|중면|칼국수|파스타|스파게티|우동|냉면|쫄면|당면|쌀국수|떡볶이|떡국|식빵|베이글|모닝빵|크로와상|또띠아|만두|교자|밀떡|부침가루|튀김가루|밀가루|빵가루|핫케이크')],
     ['식품', '양념·소스', R('간장|된장|고추장|쌈장|소스|케첩|마요|머스타드|식초|설탕|소금|후추|참기름|들기름|올리브유|올리브오일|식용유|카놀라|포도씨유|아보카도오일|드레싱|조미료|다시~|다시다|미원|굴소스|맛술|미림|물엿|올리고당|꿀~|벌꿀|잼~|스프레드|누텔라|땅콩버터|고춧가루|깨~|통깨|와사비|액젓|까나리|멸치액젓|연두|백설|해찬들|샘표|몽고|청정원\\s*소스')],
     ['식품', '두부·가공', R('두부|순두부|유부|햄~|스팸|리챔|통조림|참치캔|동원참치|옥수수캔|김치|깍두기|총각김치|열무김치|파김치|반찬|장아찌|젓갈|어묵|맛살|크래미|단무지|피클|콩~|두유면|곤약|묵~|도토리묵')],
+    ['생활용품', '세탁·청소·생활', R('디퓨저|캔들|향초|룸스프레이|섬유향수|페브리즈|습기제거|제습제|물먹는|탈취제|방향|고체비누|주방세제|퐁퐁|자연퐁|트리오|참그린|슈가버블|에코버|프로쉬|세탁조|과탄산|베이킹소다|구연산|소독|알콜솜|지퍼락|크린랩|위생팩|봉투|박스테이프|뽁뽁이|에어캡|택배박스')],
+    ['식품', '간식·과자', R('프링글스|오레오|칙촉|빈츠|고래밥|꼬깔콘|썬칩|오징어집|맛동산|에이스~|참크래커|ABC초콜릿|가나~|킨더|허쉬|m&m|트윅스|스니커즈\\s*초|로아커|버터와플|다이제|촉촉한|쫀득|누가|강정|뻥튀기|누룽지|군고구마|말랭이|건조과일|요거트볼|젤리밥', 'i')],
+    ['식품', '음료', R('코카콜라|스프라이트|밀키스|웰치스|데미소다|게토|비락|쿨피스|봉봉|갈아만든|자연은|델몬트|미닛메이드|썬키스트|홍초|흑초|콤부차|티젠|비타민\\s*음료|헛개수|17차|광동\\s*옥수수|하늘보리|블랙보리|새싹보리')],
     ['식품', '가공식품', R('비비고|청정원|오뚜기|CJ~|풀무원|동원|사조|대상~|농심|삼양|팔도|하림|목우촌|노브랜드|피코크|곰곰|탐사|오늘좋은|5K프라이스|이마트|홈플러스|롯데마트|컬리|국산|국내산|수입산|냉장|냉동|무항생제|유기농|친환경|HACCP|kg~|\\d+g~', 'i')],
     ['식품', '선물·기타식품', R('선물세트|명절|추석|설\\s*선물|한과|정과|식품|먹거리|간식\\s*세트|과일\\s*세트')],
   ];
+  // 쇼핑 검색 결과가 알려준 분류(네이버 카테고리) → 내 분류. 사전에 없는 상품도 AI 없이 분류
+  const SHOPCAT = [[/식품|농산물|축산|수산|음료|건강식품/, '식품', '식품'], [/출산|육아|유아/, '육아', '육아용품'], [/화장품|미용|뷰티/, '뷰티', '화장품'], [/반려|애완/, '반려동물', '반려동물'], [/디지털|가전|컴퓨터|휴대폰|카메라/, '가전·디지털', '가전·디지털'], [/주방/, '주방', '주방용품'], [/패션|의류|잡화|신발|가방|쥬얼리/, '패션', '패션'], [/스포츠|레저|캠핑|자동차/, '캠핑·레저', '캠핑·레저'], [/생활|건강|가구|인테리어|문구|완구/, '생활용품', '세탁·청소·생활']];
+  function shopCat(c) { if (!c) return null; const s = String(c); for (const [re, m, sub] of SHOPCAT) if (re.test(s.split('>')[0]) || re.test(s)) return { main: m, sub: /건강식품/.test(s) ? '영양제' : sub, main2: /건강식품/.test(s) ? '영양제' : m }; return null; }
   const MAIN = ['식품', '영양제', '생활용품', '육아', '반려동물', '뷰티', '주방', '패션', '캠핑·레저', '가전·디지털', '기타'];
   const COLORS = { '식품': '#FF7A45', '영양제': '#9B59F6', '생활용품': '#3B82F6', '육아': '#F472B6', '반려동물': '#B45309', '뷰티': '#EC4899', '주방': '#14B8A6', '패션': '#111827', '캠핑·레저': '#16A34A', '가전·디지털': '#64748B', '기타': '#C4C2BC' };
   function categorize(name, override) {
@@ -73,7 +79,9 @@
     const os = (L ? L.dedupe(orders) : orders).filter(o => o.date && o.date <= today);
     const groups = L ? L.group(os, opts.aliases) : os.map(o => ({ key: o.name, list: [o], alias: o.name }));
     const catOfKey = {}, rows = [];
-    for (const g of groups) { const nm = g.list[g.list.length - 1].name; const c = categorize(nm, cats[g.key]); catOfKey[g.key] = c; for (const o of g.list) rows.push({ ...o, key: g.key, cat: c.main, sub: c.sub, spend: o.price || 0 }); }
+    const pr = opts.prices || {};
+    for (const g of groups) { const nm = g.list[g.list.length - 1].name; let c = categorize(nm, cats[g.key]);
+      if (c.main === '기타') { const pe = pr[g.key] || pr[nm] || [], sc = shopCat((pe.find(x => x.cat) || {}).cat); if (sc) c = { main: sc.main2, sub: sc.sub, by: 'shop' }; } catOfKey[g.key] = c; for (const o of g.list) rows.push({ ...o, key: g.key, cat: c.main, sub: c.sub, spend: o.price || 0 }); }
     // 월별 (최근 24개월)
     const end = ym(today), months = []; for (let i = 23; i >= 0; i--) months.push(addM(end, -i));
     const monthly = months.map(m => { const r = rows.filter(o => ym(o.date) === m); return { m, spend: sum(r.map(o => o.spend)), count: r.length, orders: new Set(r.map(o => o.date + o.mall)).size }; });
@@ -137,7 +145,7 @@
   function notesOf(A, rows) {
     const N = [];
     if (A.yoy.pct != null && A.yoy.prev) N.push({ icon: 'wallet', tone: A.yoy.pct > 0 ? 'up' : 'down', big: sg(A.yoy.pct), text: '작년보다 지출' });
-    const pk = A.peaks[0]; if (pk) { const r = rows.filter(o => ym(o.date) === pk.m), bc = {}; r.forEach(o => bc[o.sub] = (bc[o.sub] || 0) + o.spend); const top = Object.entries(bc).sort((a, b) => b[1] - a[1])[0]; N.push({ icon: 'flame', tone: 'hot', big: `${pk.m.slice(2, 4)}년 ${+pk.m.slice(5)}월`, text: `가장 많이 쓴 달${top ? ' · ' + top[0] + ' 최다' : ''}` }); }
+    const pk = A.peaks[0]; if (pk) { const r = rows.filter(o => ym(o.date) === pk.m), bc = {}; r.forEach(o => bc[o.sub] = (bc[o.sub] || 0) + o.spend); const top = Object.entries(bc).sort((a, b) => b[1] - a[1])[0]; N.push({ icon: 'flame', tone: 'hot', big: `${pk.m.slice(2, 4)}년 ${+pk.m.slice(5)}월`, text: `가장 많이 쓴 달${top ? ' · ' + top[0] + ' 최다' : ''}`, m: pk.m }); }
     const cy = A.catYoy.filter(c => c.pct != null && c.prev >= 30000).sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct))[0]; if (cy) N.push({ icon: 'swap', tone: cy.pct > 0 ? 'up' : 'down', big: sg(cy.pct), text: `${cy.cat} 지출 작년 대비`, cat: cy.cat });
     const sea = A.heat.map(h => { const t = h.v.reduce((a, b) => a + b, 0), mx = Math.max(...h.v); return { h, t, mx, mo: h.v.indexOf(mx) + 1, c: t ? mx / t : 0 }; }).filter(x => x.t >= 4).sort((a, b) => b.c - a.c)[0];
     if (sea && sea.c >= 0.2) N.push({ icon: 'calendar', tone: 'hot', big: `${sea.mo}월`, text: `${sea.h.label} 가장 많이 사는 달`, cat: sea.h.cat });
@@ -145,7 +153,7 @@
     if (mk) N.push({ icon: 'tag', tone: mk.pct > 0 ? 'up' : 'down', big: sg(mk.pct), text: `${short(mk.name)} · 작년 ${man(mk.paid)} → ${mk.nowSrc} ${man(mk.now)}`, key: mk.key, img: mk.img });
     else { const ch = A.changes.filter(c => !c.shrink)[0]; if (ch) N.push({ icon: 'tag', tone: ch.pct > 0 ? 'up' : 'down', big: sg(ch.pct), text: `${short(ch.name)} 내가 낸 가격`, key: ch.key, img: ch.img }); }
     const sh = A.market.find(m => m.shrink) || A.shrink[0]; if (sh) N.push({ icon: 'alert', tone: 'warn', big: `용량 −${sh.shrink}%`, text: `${short(sh.name)} 슈링크플레이션 의심`, key: sh.key, img: sh.img });
-    const ml = A.malls[0], tot = A.total.spend; if (ml && tot) N.push({ icon: 'store', tone: '', big: Math.round(ml.spend / tot * 100) + '%', text: `${ml.mall}에서 산 비율` });
+    const ml = A.malls[0], tot = A.total.spend; if (ml && tot) N.push({ icon: 'store', tone: '', big: Math.round(ml.spend / tot * 100) + '%', text: `${ml.mall}에서 산 비율`, mall: ml.mall });
     const ct = A.byCat.slice().sort((a, b) => b.spend - a.spend)[0]; if (ct && tot) N.push({ icon: 'pie', tone: '', big: Math.round(ct.spend / tot * 100) + '%', text: `${ct.cat}에 쓴 비율`, cat: ct.cat });
     if (A.total.backN) N.push({ icon: 'cycle', tone: '', big: man(A.total.backSpend), text: `취소·반품 ${A.total.backN}건 지출에서 뺌` });
     return N.slice(0, 8);

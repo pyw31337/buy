@@ -57,7 +57,8 @@ chrome.runtime.onInstalled.addListener(() => saveOrders([], []));
 // 가격 소스: 순서대로 시도. 모두 사용자 브라우저(국내 IP)에서 품목당 하루 1회만 요청
 const SOURCES = [
   { name: '다나와', url: q => 'https://search.danawa.com/dsearch.php?query=' + q,
-    parse: h => (h.match(/class="price_sect"[\s\S]{0,500}?<strong>([0-9,]+)<\/strong>/) || h.match(/<em class="prc_c">([0-9,]+)<\/em>/) || [])[1] },
+    parse: h => (h.match(/class="price_sect"[\s\S]{0,500}?<strong>([0-9,]+)<\/strong>/) || h.match(/<em class="prc_c">([0-9,]+)<\/em>/) || [])[1],
+    img: h => { const m = h.match(/class="thumb_image"[\s\S]{0,400}?<img[^>]+(?:data-original|src)="([^"]+)"/); return m && !/noImg|blank/i.test(m[1]) ? (m[1].startsWith('//') ? 'https:' + m[1] : m[1]) : null; } },
   { name: '에누리', url: q => 'https://www.enuri.com/search.jsp?keyword=' + q,
     parse: h => (h.match(/"minprice"\s*:\s*"?([0-9]+)/i) || h.match(/class="tx--price"[^>]*>\s*([0-9,]+)/) || [])[1] },
 ];
@@ -95,10 +96,10 @@ async function collectPrices() {
     for (const s of SOURCES) {
       if (have.has(s.name) || have.has(s.name + ' 최저')) continue;
       try {
-        const v = s.parse(await fetchText(s.url(q)));
+        const html = await fetchText(s.url(q)), v = s.parse(html), im = s.img && s.img(html);
         const price = v ? +String(v).replace(/,/g, '') : 0;
         if (!price || price < 100) throw new Error('가격을 못 찾음');
-        arr.push({ date: today, price, mall: s.name + ' 최저', src: s.name }); ok++;
+        arr.push({ date: today, price, mall: s.name + ' 최저', src: s.name, url: s.url(q), img: im || undefined }); ok++;
       } catch (e) { fails[s.name] = (fails[s.name] || 0) + 1; }
       await new Promise(r => setTimeout(r, 1200));
     }
@@ -107,7 +108,7 @@ async function collectPrices() {
       try {
         const m = LetsBuy.bestMatch(it.name, await shopSearch(s, q, st[s.name]));
         if (!m) throw new Error('비슷한 상품 없음');
-        arr.push({ date: today, price: m.price, mall: s.name, src: s.name, title: m.title.slice(0, 120) }); ok++;
+        arr.push({ date: today, price: m.price, mall: s.name, src: s.name, title: m.title.slice(0, 120), img: m.img || undefined, url: m.url || s.url(q).replace('&lb=1', ''), cat: m.cat || undefined }); ok++;
       } catch (e) { fails[s.name] = (fails[s.name] || 0) + 1; }
       await new Promise(r => setTimeout(r, 2500 + Math.random() * 1500));
     }
@@ -139,3 +140,24 @@ async function notify() {
   }
   await chrome.storage.local.set({ notified });
 }
+
+// 로컬 AI(Ollama): 웹페이지(https)에서 바로 부르면 Ollama가 낯선 주소라며 403으로 막음.
+// 확장이 대신 부르고, 요청 주소(Origin)는 규칙으로 지워서 설정 없이 동작
+chrome.runtime.onInstalled.addListener(() => chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [11434], addRules: [{ id: 11434, priority: 1, action: { type: 'modifyHeaders', requestHeaders: [{ header: 'origin', operation: 'remove' }] }, condition: { urlFilter: '|http://127.0.0.1:11434/', resourceTypes: ['xmlhttprequest', 'other'] } }] }).catch(e => diag('ollama-rule', false, e)));
+chrome.runtime.onMessage.addListener((m, _s, reply) => {
+  if (!m || m.type !== 'ollama') return;
+  (async () => {
+    const base = 'http://127.0.0.1:11434';
+    try {
+      const t0 = await fetch(base + '/api/tags'); if (t0.status === 403) return reply({ ok: false, why: 'origin' });
+      const tags = await t0.json(), have = (tags.models || []).map(x => x.name);
+      if (m.op === 'ping') return reply({ ok: true, models: have });
+      const model = m.model && have.includes(m.model) ? m.model : (have.find(n => /qwen|gemma|llama|exaone/i.test(n)) || have[0]);
+      if (!model) return reply({ ok: false, why: 'nomodel' });
+      const r = await fetch(base + '/api/chat', { method: 'POST', body: JSON.stringify({ model, stream: false, format: 'json', messages: [{ role: 'user', content: m.prompt }] }) });
+      if (!r.ok) return reply({ ok: false, why: 'http' + r.status });
+      reply({ ok: true, model, content: (await r.json()).message.content });
+    } catch (e) { reply({ ok: false, why: 'down' }); }
+  })();
+  return true;
+});
