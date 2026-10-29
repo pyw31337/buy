@@ -1,4 +1,4 @@
 {
  "name":"letsbuy","private":true,
- "scripts":{"test":"node test/run.js && node test/html.js && node --check docs/app.js && for f in extension/*.js; do node --check $f; done","sync":"cp docs/core.js extension/core.js"}
+ "scripts":{"test":"node test/run.js && node test/html.js && node test/megamart.js && node --check docs/app.js && for f in extension/*.js; do node --check $f; done","sync":"cp docs/core.js extension/core.js"}
 }

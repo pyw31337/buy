@@ -5,7 +5,7 @@
     ['G마켓', /gmarket|G마켓|지마켓/i], ['옥션', /auction|옥션/i], ['11번가', /11st|11번가/i],
     ['SSG', /ssg\.com|SSG|이마트몰|신세계몰/], ['마켓컬리', /kurly|컬리/i], ['오늘의집', /오늘의집|ohou/i],
     ['위메프', /wemakeprice|위메프/i], ['티몬', /tmon|티몬/i], ['무신사', /musinsa|무신사/i], ['알리익스프레스', /aliexpress|알리익스프레스/i],
-    ['롯데ON', /lotteon|롯데ON|롯데온/i], ['홈플러스', /homeplus|홈플러스/i], ['다이소', /daiso|다이소/i], ['컬리', /kurly/i],
+    ['롯데ON', /lotteon|롯데ON|롯데온/i], ['홈플러스', /homeplus|홈플러스/i], ['다이소', /daiso|다이소/i], ['컬리', /kurly/i], ['메가마트', /megamart|메가마트/i],
   ];
   const ORDER_HINT = /(주문|결제|구매|배송|발송|출고)[이가을]?\s*(완료|확인|안내|내역|시작|되었|접수)/;
   const CANCEL_HINT = /(취소|환불|반품)\s*(완료|접수|안내)/;
@@ -46,7 +46,7 @@
     let buf = '';
     const flush = () => { const t = decode(buf).replace(/\s+/g, ' ').trim(); if (t) out.push({ t }); buf = ''; };
     while ((m = re.exec(html))) {
-      if (m[0].startsWith('<img')) { flush(); const src = (m[0].match(/src\s*=\s*["']([^"']+)/i) || [])[1] || ''; const w = +((m[0].match(/width\s*=\s*["']?(\d+)/i) || [])[1] || 0); out.push({ img: decode(src), w }); }
+      if (m[0].startsWith('<img')) { flush(); const src = (m[0].match(/src\s*=\s*["']([^"']+)/i) || [])[1] || ''; const w = +((m[0].match(/width\s*=\s*["']?(\d+)/i) || [])[1] || 0); const alt = decode((m[0].match(/alt\s*=\s*["']([^"']*)/i) || [])[1] || '').trim(); out.push({ img: decode(src), w, alt }); }
       else if (m[2] !== undefined) buf += m[2];
       else if (m[0] === '<') buf += ' ';
       else if (/^<\/?(span|a|strong|b|font|em|i|u|small|label)\b/i.test(m[0])) buf += ' ';
@@ -60,6 +60,8 @@
   // 상품 블록: [이미지] 상품명 (옵션) 수량 가격 — 이름 뒤 6칸 안에 가격이 있어야 인정
   function itemsFromTokens(toks) {
     const items = [];
+    // 상품 이미지 alt = 상품명인 경우가 많음 → 이름 칸이 없으면 alt를 이름 칸으로 끼워 넣음
+    toks = toks.flatMap((t, i) => goodImg(t) && t.alt && isProductName(clean(t.alt)) && !toks.slice(i + 1, i + 4).some(x => x.t && x.t.includes(t.alt)) ? [t, { t: t.alt }] : [t]);
     for (let i = 0; i < toks.length; i++) {
       let name = toks[i].t; if (!name) continue;
       const lab = name.match(/^(?:상품명|주문\s*상품명?|상품\s*정보|구매\s*상품|주문하신\s*상품)\s*(?:[:：|]\s*|\s+)(.+)$/);
@@ -72,7 +74,7 @@
         if (/^(옵션|선택)\s*[:：]/.test(t)) { opt = t.replace(/^(옵션|선택)\s*[:：]\s*/, ''); continue; }
         const q = t.match(/(?:수량\s*[:：]?\s*(\d+)|(\d+)\s*개(?![가-힣]))/); if (q) qty = +(q[1] || q[2]);
         if (/(총|합계|배송비|할인|적립|결제\s*금액|상품\s*금액|주문\s*금액)/.test(t) && !won(t)) break;
-        const p = won(t); if (p && p >= 100) { if (/(총|합계|배송비|할인|적립|결제\s*금액)/.test(t)) break; price = p; break; }
+        const p = won(t); if (p && p >= 100) { if (/(총|합계|배송비|할인|적립|결제\s*금액)/.test(t)) break; price = p; const q2 = (t.replace(/[0-9,]+\s*원/, '') + ' ' + ((toks[i + k + 1] || {}).t || '')).match(/(?:^|\s)(\d{1,3})\s*개(?![가-힣])/); if (q2) qty = +q2[1]; break; }
         if (isProductName(clean(t)) && !/^(옵션|선택)/.test(t)) break; // 다음 상품명이 먼저 나오면 중단
       }
       if (!price) continue;
@@ -88,8 +90,15 @@
   const orderNoOf = t => (t.match(/주문\s*번호\s*[:：]?\s*([0-9A-Z\-]{8,24})/) || [])[1] || null;
 
   /** mail: {subject, from, date, body?, html?} → orders[] */
+  // quoted-printable(=3D, =EC=82=BC ...) 원문 디코딩
+  function decodeQP(h) {
+    if (!/=3D|=\r?\n|=[0-9A-F]{2}=[0-9A-F]{2}/.test(h)) return h;
+    const raw = h.replace(/=\r?\n/g, '');
+    const bytes = []; for (let i = 0; i < raw.length; i++) { if (raw[i] === '=' && /^[0-9A-F]{2}$/i.test(raw.substr(i + 1, 2))) { bytes.push(parseInt(raw.substr(i + 1, 2), 16)); i += 2; } else { const c = raw.charCodeAt(i); if (c < 128) bytes.push(c); else bytes.push(...new TextEncoder().encode(raw[i])); } }
+    try { return new TextDecoder('utf-8').decode(new Uint8Array(bytes)); } catch { return h; }
+  }
   function parseMail(mail) {
-    const toks = mail.html ? htmlTokens(mail.html) : null;
+    const toks = mail.html ? htmlTokens(decodeQP(String(mail.html))) : null;
     const body = toks ? toks.map(t => t.t || '').filter(Boolean).join('\n') : (mail.body || '');
     const text = `${mail.subject || ''}\n${body}`;
     if (/(취소|환불|반품|교환)/.test(mail.subject || '')) return [];
@@ -192,6 +201,6 @@
     return out;
   }
 
-  const api = { isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
+  const api = { decodeQP, isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
   if (typeof module !== 'undefined') module.exports = api; else root.LetsBuy = api;
 })(typeof self !== 'undefined' ? self : this);
