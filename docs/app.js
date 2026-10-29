@@ -52,13 +52,17 @@
     shield: '<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
     bell: '<path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/><path d="M3.3 15.3A1 1 0 0 0 4 17h16a1 1 0 0 0 .7-1.7C19.4 14 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.4 6-2.7 7.3"/>',
     cycle: '<path d="M21 12a9 9 0 0 0-9-9 9.8 9.8 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.8 9.8 0 0 0 6.7-2.7L21 16"/><path d="M16 16h5v5"/>',
+    image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
     chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/>',
   };
   const svg = (k, sz = 24) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${P[k] || P.package}</svg>`;
   const CAT = [[/휴지|화장지|키친|타월|물티슈|티슈/, 'roll', '#E8F1FF'], [/세제|유연제|락스|세정|샴푸|린스|바디/, 'droplet', '#E6F7F1'], [/제습|습기/, 'droplet', '#EAF4FF'], [/치약|칫솔|가글|면도/, 'sparkles', '#F3EEFF'], [/커피|원두|캡슐|차 |티백/, 'coffee', '#F6EEE6'], [/물|생수|삼다수|우유|두유|음료|주스/, 'milk', '#E8F6FB'], [/필터|공기|청정/, 'wind', '#EEF2F6'], [/양말|속옷|티셔츠|의류/, 'shirt', '#FFF0EA'], [/사료|간식|고양이|강아지|모래/, 'paw', '#FFF5E0']];
   const CI2 = { '식품': 'apple', '영양제': 'pill', '생활용품': 'roll', '육아': 'baby', '반려동물': 'paw', '뷰티': 'sparkles', '주방': 'pan', '패션': 'shirt', '캠핑·레저': 'tent', '가전·디지털': 'plug' };
   const catOf = n => CAT.find(([re]) => re.test(n)) || (window.LetsBuyInsights && (c => CI2[c.main] ? [0, CI2[c.main], LetsBuyInsights.COLORS[c.main] + '1F'] : null)(LetsBuyInsights.categorize(n))) || [0, 'package', '#F1F0EC'];
-  const thumb = (it, sz = 64) => it.img ? `<img class="th" style="width:${sz}px;height:${sz}px" src="${esc(it.img)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<span class=&quot;th ico&quot; style=&quot;width:${sz}px;height:${sz}px&quot;>${svg('package').replace(/"/g, '&quot;')}</span>'">` : (([, k, bg]) => `<span class="th ico" style="width:${sz}px;height:${sz}px;background:${bg}">${svg(k, sz * .45)}</span>`)(catOf(it.name));
+  // 사진: 확장이 만든 작은 WebP(내 브라우저 보관) → 공유 캐시 → 메일 사진 → 분류 그림
+  let THUMB = {}, thumbProg = null, sharedAsked = new Set();
+  const imgOf = it => (it.key && THUMB[it.key]) || it.img || null;
+  const thumb = (it, sz = 64) => (it = { ...it, img: imgOf(it) }).img ? `<img class="th" style="width:${sz}px;height:${sz}px" src="${esc(it.img)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<span class=&quot;th ico&quot; style=&quot;width:${sz}px;height:${sz}px;background:${catOf(it.name)[2]}&quot;>${svg(catOf(it.name)[1], sz * .45).replace(/"/g, '&quot;')}</span>'">` : (([, k, bg]) => `<span class="th ico" style="width:${sz}px;height:${sz}px;background:${bg}">${svg(k, sz * .45)}</span>`)(catOf(it.name));
   const MC = { '쿠팡': '#E3262D', '네이버페이': '#03C75A', 'G마켓': '#2E7D32', '옥션': '#D32F2F', '11번가': '#FF0038', 'SSG': '#E2007E', '마켓컬리': '#5F0080', '컬리': '#5F0080', '오늘의집': '#35C5F0', '무신사': '#000', '알리익스프레스': '#E43225' };
   const LOGO = { '쿠팡': 'coupang', '네이버': 'npay', '네이버페이': 'npay', '네이버쇼핑': 'naver', 'G마켓': 'gmarket', '옥션': 'auction', '11번가': '11st', 'SSG': 'ssg', '마켓컬리': 'kurly', '컬리': 'kurly', '롯데ON': 'lotteon', '배민': 'baemin', '메가마트': 'megamart', '오늘의집': 'ohou', '다나와': 'danawa', '에누리': 'enuri' };
   const logo = (m, sz = 18) => { const k = LOGO[m] || LOGO[platOf(m)]; return k ? `<img class="lg-i" src="logos/${k}.png" width="${sz}" height="${sz}" alt="${esc(m)}">` : `<span class="lg-i lg-t" style="width:${sz}px;height:${sz}px;background:${MC[m] || '#77777F'}">${esc(String(m || '?').slice(0, 1))}</span>`; };
@@ -123,7 +127,7 @@
     const rows = all.filter(i => (filter === 'all' || (filter === '재구매' ? i.count >= 2 : filter === '1회' ? i.count === 1 : i.type.startsWith(filter))) && (!q || i.name.includes(q)) && (!catF || LetsBuyInsights.categorize(i.name, store.cats[i.key]).main === catF))
       .sort((x, y) => (y.count >= 2) - (x.count >= 2) || (x.count >= 2 ? x.daysLeft - y.daysLeft : (x.last < y.last ? 1 : -1)));
     $$('#filter button').forEach(b => { const f = b.dataset.f, n = f === 'all' ? all.length : f === '재구매' ? all.filter(i => i.count >= 2).length : f === '1회' ? all.filter(i => i.count === 1).length : all.filter(i => i.type.startsWith(f)).length; b.textContent = b.dataset.l + ' ' + n; });
-    $('#summary').innerHTML = summary(d.orders) + (catF ? `<button class="catf" id="catf">${esc(catF)} ×</button>` : '');
+    $('#summary').innerHTML = photoBar() + summary(d.orders) + (catF ? `<button class="catf" id="catf">${esc(catF)} ×</button>` : ''); bindPhoto($('#summary'));
     if (cur === 'dash' && window.renderDash) window.renderDash();
     if (cur === 'prod' && window.renderProd) window.renderProd();
     $('#list').innerHTML = rows.map(i => `<div class="lrow" data-k="${esc(i.key)}">${thumb(i, 44)}<div class="lmain"><b>${esc(i.name)}</b><div class="chips">${i.malls.map(mallChip).join('')}<span class="cnt">${i.count >= 2 ? i.count + '회 · ' + i.avgGap + '일 간격' : '1회 · ' + i.last}</span></div></div>${i.count >= 2 ? ring(i, 44) : `<span class="once">${i.prices.length ? fmt(i.prices[0].price) : ''}</span>`}</div>`).join('') || '<div class="empty">없어요</div>';
@@ -187,7 +191,26 @@
     try { const r = await fetch('http://127.0.0.1:11434/api/chat', { method: 'POST', body: JSON.stringify({ model: model || 'qwen2.5:3b', stream: false, format: 'json', messages: [{ role: 'user', content: prompt }] }) }); if (!r.ok) return { ok: false, why: r.status === 403 ? 'origin' : 'http' + r.status }; return { ok: true, content: (await r.json()).message.content }; } catch { return { ok: false, why: 'noext' }; }
   }
   const OLLAMA_HELP = { down: 'Ollama가 꺼져 있어요 · 설치 후 실행해 주세요', nomodel: '모델이 없어요 · 터미널에서 ollama pull qwen2.5:3b', origin: 'Ollama가 요청을 막았어요 · 확장 v0.11로 업데이트해 주세요', noext: '확장 v0.11을 설치하면 설정 없이 돼요', old: '확장을 v0.11로 업데이트해 주세요', ext: '확장을 다시 불러와 주세요' };
-  window.LB_UI = { toast: t => toast(t), saveStore: () => save(), fmt, svg, thumb, esc, mallChip, data, raw, logo, platOf, mallName, ollama, OLLAMA_HELP, store: () => store, isDemo: () => demo,
+  const refreshAll = () => { render(); if (window.renderProd) window.renderProd(); if (cur === 'dash' && window.renderDash) window.renderDash(); };
+  // 공유 캐시: 사진 없는 제품만, 제품 키 해시로 한 번에 물어봄 (이름 해시 외엔 아무것도 보내지 않음)
+  async function sharedFill() {
+    if (!window.crypto || !crypto.subtle) return;
+    const items = LetsBuy.analyze(raw().orders, raw().today, raw().aliases, { all: true }).filter(it => !THUMB[it.key] && !sharedAsked.has(it.key));
+    if (!items.length) return; items.forEach(it => sharedAsked.add(it.key));
+    const hs = await Promise.all(items.map(it => LetsBuy.thumbHash(it.key))); let n = 0;
+    for (let i = 0; i < hs.length; i += 200) {
+      try { const r = await (await fetch(LetsBuy.THUMBS + '/has?h=' + hs.slice(i, i + 200).join(','))).json(); const have = new Set(r.have || []); items.slice(i, i + 200).forEach((it, j) => { if (have.has(hs[i + j])) { THUMB[it.key] = LetsBuy.THUMBS + '/t/' + hs[i + j] + '.webp'; n++; } }); } catch {}
+    }
+    if (n) refreshAll();
+  }
+  function photoBar() {
+    if (demo || !store.orders.length) return '';
+    const items = LetsBuy.analyze(raw().orders, raw().today, raw().aliases, { all: true }), have = items.filter(imgOf).length, pc = items.length ? Math.round(have / items.length * 100) : 0, p = thumbProg;
+    const run = p && p.running;
+    return `<div class="phbar"><span class="phl">${svg('image', 16)} 사진 <b>${have}/${items.length}</b></span><span class="phm"><i style="width:${run ? Math.round(p.done / (p.total || 1) * 100) : pc}%"></i></span>${run ? `<small>찾는 중 ${p.done}/${p.total}</small>` : `<button class="btn sm" id="fillImg">사진 채우기</button>`}</div>`;
+  }
+  function bindPhoto(el) { const b = el && el.querySelector('#fillImg'); if (b) b.onclick = () => { if (!extInfo) { toast('확장(v0.12)이 연결되어 있어야 해요'); return; } thumbProg = { running: true, done: 0, total: 1 }; refreshAll(); window.postMessage({ app: 'letsbuy-web', type: 'fillImages', force: true }, location.origin); }; }
+  window.LB_UI = { photoBar, bindPhoto, imgOf, sharedFill, toast: t => toast(t), saveStore: () => save(), fmt, svg, thumb, esc, mallChip, data, raw, logo, platOf, mallName, ollama, OLLAMA_HELP, store: () => store, isDemo: () => demo,
     plat: () => plat, setPlat: p => { plat = plat === p ? null : p; render(); if (window.renderProd) window.renderProd(); if (cur === 'dash' && window.renderDash) window.renderDash(); },
     go: t => go(t), rerender: () => render(),
     openKey: k => { const d = data(), it = LetsBuy.analyze(d.orders, d.today, d.aliases, { all: true }).find(i => i.key === k); if (it) open(it, d); },
@@ -245,8 +268,11 @@
     if (e.source !== window || e.origin !== location.origin || !e.data || e.data.app !== 'letsbuy-ext') return;
     if (e.data.type === 'diag') extLog = e.data.diag;
     if (e.data.type === 'hello') { extInfo = { version: e.data.version }; $('#extState').textContent = '확장 연결됨'; $('#extState').classList.add('on'); window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*'); }
-    if (e.data.type === 'data') { if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders, e.data.prices, true); $('#extState').textContent = `확장 v${e.data.version} · 주문 ${e.data.orders.length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
+    if (e.data.type === 'thumbProg') { thumbProg = e.data.prog; const el = document.querySelector('.phbar'); if (el) el.outerHTML = photoBar(); bindPhoto(document); }
+    if (e.data.type === 'data') { THUMB = {}; for (const [k, v] of Object.entries(e.data.thumbs || {})) THUMB[k] = v.d || v.u; if (e.data.thumbProg) thumbProg = e.data.thumbProg; if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders, e.data.prices, true); $('#extState').textContent = `확장 v${e.data.version} · 주문 ${e.data.orders.length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
+    if (e.data.type === 'data') setTimeout(sharedFill, 300);
   });
+  setTimeout(sharedFill, 1200);
   $('#pullExt').onclick = () => window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*');
   setTimeout(() => { if (!$('#extState').classList.contains('on')) $('#extState').textContent = '확장 없음'; }, 1500);
   function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('on'), 2400); }

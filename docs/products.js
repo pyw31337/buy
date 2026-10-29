@@ -63,7 +63,7 @@
     const d = s.map((p, i) => `${i ? 'L' : 'M'}${x(i)},${y(p.price)}`).join('');
     return `<svg class="spk" viewBox="0 0 ${w} ${h}"><path d="${d}L${x(s.length - 1)},${h}L2,${h}Z" fill="#FF5A36" opacity=".1"/><path d="${d}" fill="none" stroke="#FF5A36" stroke-width="1.8"/><circle cx="${x(s.length - 1)}" cy="${y(v[v.length - 1])}" r="3" fill="#FF5A36"/></svg>`;
   }
-  const photo = (p, sz) => W('thumb')({ img: p.img, name: p.name }, sz);
+  const photo = (p, sz) => W('thumb')({ key: p.key, img: p.img, name: p.name }, sz);
   function card(p) {
     const fmt = W('fmt'), esc = W('esc'), lg = W('logo'), sp = p.series.length >= 2 ? p.series.slice(-30) : (p.prices || []).slice(-12);
     return `<button class="pc-card" data-k="${esc(p.key)}">
@@ -90,12 +90,12 @@
     const list = base.filter(p => !catF || p.cat === catF);
     const nb = list.filter(p => p.verdict.k === 'buy').length, ns = list.filter(p => p.verdict.k === 'soon').length, nw = list.filter(p => p.verdict.k === 'wait').length;
     const cats = [...new Set(base.map(p => p.cat))];
-    el.innerHTML = `${chips(d)}
+    el.innerHTML = `${chips(d)}${W('photoBar')()}
       <div class="phead"><h1>${W('plat')() ? `${W('logo')(W('plat')(), 28)} ${esc(W('plat')())}에서 ` : ''}자주 사는 제품</h1>
         <div class="vsum"><span style="--v:${VC.buy}"><b>${nb}</b>지금 사세요</span><span style="--v:${VC.soon}"><b>${ns}</b>곧 떨어져요</span><span style="--v:${VC.wait}"><b>${nw}</b>기다리세요</span></div></div>
       <div class="ctabs"><button class="ct ${catF ? '' : 'on'}" data-c="">전체 ${base.length}</button>${cats.map(c => `<button class="ct ${catF === c ? 'on' : ''}" data-c="${esc(c)}">${esc(c)} ${base.filter(p => p.cat === c).length}</button>`).join('')}<span class="sp"></span><button class="ct" id="viewT">${view === 'rep' ? '1번 산 것도 보기' : '자주 산 것만'}</button></div>
       <div class="pgrid">${list.slice(0, 120).map(card).join('') || '<div class="empty">없어요</div>'}</div>`;
-    bind(el);
+    bind(el); W('bindPhoto')(el);
     el.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { catF = b.dataset.c || null; render(); });
     el.querySelector('#viewT').onclick = () => { view = view === 'rep' ? 'all' : 'rep'; render(); };
   }

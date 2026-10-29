@@ -31,6 +31,7 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
     badge('✓', '#1F9D63'); setTimeout(() => badge(''), 8000);
     const [t] = await chrome.tabs.query({ url: WEB + '*' });
     if (t) { chrome.tabs.update(t.id, { active: true }); chrome.tabs.reload(t.id); } else chrome.tabs.create({ url: WEB });
+    fillImages().catch(e => diag('thumbs', false, e.message)); // 사진은 바로, 가격과 별개로
     collectPrices().then(notify); // 가격은 뒤에서 조용히
   });
   if (m.type === 'pricesNow') { collectPrices().then(r => notify().then(() => reply(r))); return true; }
@@ -52,7 +53,7 @@ async function saveOrders(list, mails) {
   return orders.length;
 }
 // 확장을 새로 고치거나 업데이트하면 보관한 메일로 자동 재분석
-chrome.runtime.onInstalled.addListener(() => saveOrders([], []));
+chrome.runtime.onInstalled.addListener(() => saveOrders([], []).then(() => fillImages()));
 
 // 가격 소스: 순서대로 시도. 모두 사용자 브라우저(국내 IP)에서 품목당 하루 1회만 요청
 const SOURCES = [
@@ -161,3 +162,72 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
   })();
   return true;
 });
+
+// ── 사진 채우기: 가격 수집과 별개로, 수집 직후 바로 실행. 공유 캐시 → 메일 사진 → 가격 기록 사진 → 쇼핑몰 검색 순
+const IMG_SEARCH = [
+  { name: '네이버', url: q => 'https://search.shopping.naver.com/search/all?query=' + q, pick: h => (LetsBuy.parseSearch('네이버', h).find(x => x.img) || {}).img || LetsBuy.findImg('네이버', h) },
+  { name: '다나와', url: q => 'https://search.danawa.com/dsearch.php?query=' + q, pick: h => LetsBuy.findImg('다나와', h) },
+  { name: '쿠팡', url: q => 'https://www.coupang.com/np/search?q=' + q, pick: h => (LetsBuy.parseSearch('쿠팡', h).find(x => x.img) || {}).img || LetsBuy.findImg('쿠팡', h) },
+  { name: '11번가', url: q => 'https://search.11st.co.kr/Search.tmall?kwd=' + q, pick: h => LetsBuy.findImg('11번가', h) },
+  { name: 'G마켓', url: q => 'https://browse.gmarket.co.kr/search?keyword=' + q, pick: h => LetsBuy.findImg('G마켓', h) },
+  { name: '컬리', url: q => 'https://www.kurly.com/search?sword=' + q, pick: h => LetsBuy.findImg('컬리', h) },
+];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function toWebp(url) {
+  const c = new AbortController(); const t = setTimeout(() => c.abort(), 12000);
+  try {
+    const r = await fetch(url, { signal: c.signal, referrerPolicy: 'no-referrer', credentials: 'omit' }); if (!r.ok) throw new Error('HTTP ' + r.status);
+    const bm = await createImageBitmap(await r.blob()); if (bm.width < 40 || bm.height < 40) throw new Error('작음');
+    const S = 240, k = Math.min(1, S / Math.max(bm.width, bm.height)), cv = new OffscreenCanvas(Math.round(bm.width * k), Math.round(bm.height * k));
+    cv.getContext('2d').drawImage(bm, 0, 0, cv.width, cv.height);
+    for (const q of [0.78, 0.6, 0.42]) { const b = await cv.convertToBlob({ type: 'image/webp', quality: q }); if (b.size <= 58000 && b.type === 'image/webp') return b; }
+    throw new Error('큼');
+  } finally { clearTimeout(t); }
+}
+const b64 = async b => { const a = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < a.length; i += 8192) s += String.fromCharCode.apply(null, a.subarray(i, i + 8192)); return 'data:image/webp;base64,' + btoa(s); };
+let filling = false;
+async function fillImages(force) {
+  if (filling) return { busy: true }; filling = true;
+  try {
+    const st = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'thumbs', 'thumbMiss']);
+    const thumbs = st.thumbs || {}, miss = st.thumbMiss || {}, today = todayStr(), prices = st.prices || {};
+    const items = LetsBuy.analyze(st.orders || [], today, st.aliases || {}, { all: true }).sort((a, b) => b.count - a.count);
+    const todo = items.filter(it => !thumbs[it.key] && (force || !miss[it.key] || Date.parse(today) - Date.parse(miss[it.key]) > 7 * 864e5));
+    const prog = async (done, extra = {}) => chrome.storage.local.set({ thumbProg: { done, total: todo.length, have: Object.keys(thumbs).length, all: items.length, running: done < todo.length, at: new Date().toISOString(), ...extra } });
+    await prog(0);
+    // 1) 공유 캐시를 한 번에 확인
+    const hs = {}; for (const it of todo) hs[it.key] = await LetsBuy.thumbHash(it.key);
+    const keys = todo.map(it => it.key);
+    for (let i = 0; i < keys.length; i += 200) {
+      try { const r = await (await fetch(LetsBuy.THUMBS + '/has?h=' + keys.slice(i, i + 200).map(k => hs[k]).join(','))).json(); const have = new Set(r.have || []); keys.slice(i, i + 200).forEach(k => { if (have.has(hs[k])) thumbs[k] = { u: LetsBuy.THUMBS + '/t/' + hs[k] + '.webp', from: '공유' }; }); } catch (e) { diag('thumb-has', false, e.message); }
+    }
+    await chrome.storage.local.set({ thumbs });
+    const off = {}; let n = 0, got = 0, searched = 0;
+    for (const it of todo) {
+      n++; if (thumbs[it.key]) { got++; if (n % 5 === 0) await prog(n); continue; }
+      const cands = [it.img, ...(prices[it.key] || []).slice().reverse().map(p => p.img)].filter(Boolean).map(u => ({ u, from: '메일' }));
+      let blob = null, from = '';
+      for (const c of cands) { try { blob = await toWebp(c.u); from = c.from; break; } catch {} }
+      const q = encodeURIComponent(LetsBuy.tokens(it.name).slice(0, 5).join(' ') || it.name);
+      for (const s of IMG_SEARCH) {
+        if (blob) break; if (off[s.name] >= 3) continue; // 연속 3번 막히면 그 쇼핑몰은 이번엔 쉼
+        try {
+          searched++; const r = await fetch(s.url(q), { credentials: 'include' }); const h = r.ok ? await r.text() : '';
+          if (!h || blocked(h)) throw new Error('막힘');
+          const u = s.pick(h); if (!u) throw new Error('사진 없음');
+          blob = await toWebp(u); from = s.name; off[s.name] = 0;
+        } catch (e) { off[s.name] = (off[s.name] || 0) + 1; }
+        await sleep(1200 + Math.random() * 800);
+      }
+      if (blob) {
+        thumbs[it.key] = { d: await b64(blob), from }; got++;
+        fetch(LetsBuy.THUMBS + '/t/' + hs[it.key] + '.webp', { method: 'PUT', headers: { 'Content-Type': 'image/webp' }, body: blob }).catch(() => {}); // 제품명 해시+사진만 공유
+      } else miss[it.key] = today;
+      await chrome.storage.local.set({ thumbs, thumbMiss: miss }); await prog(n);
+    }
+    await prog(todo.length, { running: false, have: Object.keys(thumbs).length });
+    diag('thumbs', true, `got=${got}/${todo.length} have=${Object.keys(thumbs).length}/${items.length} searched=${searched} off=${JSON.stringify(off)}`);
+    return { got, total: todo.length };
+  } finally { filling = false; }
+}
+chrome.runtime.onMessage.addListener((m, _s, reply) => { if (m && m.type === 'fillImages') { fillImages(m.force).then(reply); return true; } });

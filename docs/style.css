@@ -172,3 +172,8 @@ code{font-size:12px;background:#F0EFEB;padding:2px 6px;border-radius:6px;word-br
 .mb,.hmr[data-cat],.yr[data-cat],.kpi,.note,.mlink{cursor:pointer}.mb:hover rect:last-of-type{opacity:.8}.mlink{border:0;background:none;padding:0;display:flex;gap:6px;align-items:center}.kpi:hover,.hmr[data-cat]:hover,.yr[data-cat]:hover{background:#FAF9F6}
 #aiCatMsg.err{color:#C8321E;font-weight:700}#aiCatMsg a{color:inherit}
 @media (max-width:640px){.pgrid{grid-template-columns:repeat(2,1fr);gap:10px}.pc-card{padding:8px;border-radius:16px}.vb{top:14px;left:14px;font-size:11px;padding:4px 8px}.pnow{font-size:16px}.pdtop{grid-template-columns:1fr}.pdimg{max-width:320px;margin:0 auto}.vsum span{min-width:0;flex:1}.vsum{width:100%}}
+/* v0.12 사진 채우기 */
+.phbar{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #ECEAE4;border-radius:14px;padding:10px 14px;margin:10px 0 14px}
+.phbar .phl{display:flex;align-items:center;gap:6px;font-size:14px;color:#55555C;white-space:nowrap}.phbar .phl b{color:#1A1A1F;font-size:16px}
+.phbar .phm{flex:1;height:8px;border-radius:8px;background:#F1F0EC;overflow:hidden}.phbar .phm i{display:block;height:100%;background:#FF5A36;border-radius:8px;transition:width .4s}
+.phbar small{color:#77777F;white-space:nowrap}

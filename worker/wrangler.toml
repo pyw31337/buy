@@ -1,0 +1,12 @@
+name = "letsbuy-thumbs"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[[r2_buckets]]
+binding = "B"
+bucket_name = "letsbuy-thumbs"
+
+[[ratelimits]]
+name = "RL"
+namespace_id = "1031"
+simple = { limit = 30, period = 60 }

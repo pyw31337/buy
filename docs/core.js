@@ -38,6 +38,15 @@
     if ((s.match(/\s/g) || []).length > 14) return false;
     return true;
   }
+  // 실제 원본 주소: 지연로딩(data-src), 따옴표 없는 src, //주소, 네이버 메일·이미지 프록시(?src=/url=) 풀기
+  function imgSrc(tag) {
+    const at = k => (tag.match(new RegExp('\\s' + k + '\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s>]+))', 'i')) || []).slice(1).find(x => x != null);
+    let u = decode(at('data-original') || at('data-src') || at('data-img-src') || at('data-lazy-src') || at('src') || '').trim();
+    if (/^cid:|^data:/i.test(u)) return '';
+    for (let i = 0; i < 2; i++) { const q = u.match(/[?&](?:src|url|u|imgurl|image)=(https?(?::|%3A)[^&]+)/i); if (q && /mail\.naver|proxy|phinf|pstatic|link\.|redirect|imgproxy/i.test(u.split('?')[0])) u = decodeURIComponent(q[1]); else break; }
+    if (u.startsWith('//')) u = 'https:' + u;
+    return u.replace(/^http:\/\//i, 'https://');
+  }
   const BAD_IMG = /logo|banner|icon|btn|button|spacer|blank|pixel|track|open\?|1x1|bg_|arrow|bullet|line|footer|header|sns|facebook|kakao|insta|youtube|badge|ship-to|cart_|billing|stamp|_tit|title|common/i;
 
   // HTML → 순서대로 텍스트 칸/이미지 토큰 (DOM 없이 동작: 확장·웹·Node 공용)
@@ -47,7 +56,7 @@
     let buf = '';
     const flush = () => { const t = decode(buf).replace(/\s+/g, ' ').trim(); if (t) out.push({ t }); buf = ''; };
     while ((m = re.exec(html))) {
-      if (m[0].startsWith('<img')) { flush(); const src = (m[0].match(/src\s*=\s*["']([^"']+)/i) || [])[1] || ''; const w = +((m[0].match(/width\s*=\s*["']?(\d+)/i) || [])[1] || 0); const alt = decode((m[0].match(/alt\s*=\s*["']([^"']*)/i) || [])[1] || '').trim(); out.push({ img: decode(src), w, alt }); }
+      if (m[0].startsWith('<img')) { flush(); const src = imgSrc(m[0]); const w = +((m[0].match(/width\s*=\s*["']?(\d+)/i) || [])[1] || 0); const alt = decode((m[0].match(/alt\s*=\s*["']([^"']*)/i) || [])[1] || '').trim(); out.push({ img: decode(src), w, alt }); }
       else if (m[2] !== undefined) buf += m[2];
       else if (m[0] === '<') buf += ' ';
       else if (/^<\/?(span|a|strong|b|font|em|i|u|small|label)\b/i.test(m[0])) buf += ' ';
@@ -360,6 +369,17 @@
     return out;
   }
 
-  const api = { parseSearch, bestMatch, mailKind, FAILS, backouts, parseEml, imgBlockItems, orderBlockItems, tableItems, labelItems, normName, decodeQP, isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
+  // 검색 결과 HTML에서 첫 상품 사진 찾기(11번가·G마켓·컬리·다나와 등). 상품 CDN 주소만 인정, 없으면 og:image
+  const PIMG = { '11번가': /cdn\.011st\.com\/11dims\/[^"'\s]*\/product\/|i\.011st\.com\/[^"'\s]*product/i, 'G마켓': /gdimg\.gmarket\.co\.kr\/[^"'\s]*(?:goods|item)/i, '컬리': /(?:img-cf|product-image)\.kurly\.com\//i, '다나와': /img\.danawa\.com\/prod_img\//i, '쿠팡': /thumbnail\d*\.coupangcdn\.com\//i, '네이버': /shopping-phinf\.pstatic\.net\//i };
+  function findImg(site, html) {
+    const re = PIMG[site]; html = String(html || '');
+    if (re) { const all = html.match(/(?:https?:)?\/\/[^"'\s()<>\\]+?\.(?:jpe?g|png|webp|gif)(?:\?[^"'\s<>\\]*)?/gi) || []; const u = all.map(x => x.replace(/\\\//g, '/')).find(x => re.test(x)); if (u) return u.startsWith('//') ? 'https:' + u : u; }
+    const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)/i) || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image/i);
+    return og && !BAD_IMG.test(og[1]) ? (og[1].startsWith('//') ? 'https:' + og[1] : og[1]) : null;
+  }
+  /** 공유 썸네일 이름표: 정규화한 제품 키의 SHA-256 앞 32자리 (이름 외 정보 없음) */
+  async function thumbHash(key) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(key).normalize('NFC').toLowerCase().trim())); return [...new Uint8Array(b)].slice(0, 16).map(x => x.toString(16).padStart(2, '0')).join(''); }
+  const THUMBS = 'https://letsbuy-thumbs.pyw213.workers.dev';
+  const api = { THUMBS, thumbHash, findImg, imgSrc, parseSearch, bestMatch, mailKind, FAILS, backouts, parseEml, imgBlockItems, orderBlockItems, tableItems, labelItems, normName, decodeQP, isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
   if (typeof module !== 'undefined') module.exports = api; else root.LetsBuy = api;
 })(typeof self !== 'undefined' ? self : this);
