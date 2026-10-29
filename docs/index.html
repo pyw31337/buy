@@ -5,7 +5,7 @@
 <link rel="icon" href="favicon.ico?v=0142" sizes="any"><link rel="icon" href="brand/favicon-32.png?v=0142" sizes="32x32"><link rel="apple-touch-icon" href="brand/apple-touch-icon.png?v=0142"><link rel="manifest" href="manifest.webmanifest?v=0142"><meta name="theme-color" content="#0A1C38">
 <meta property="og:type" content="website"><meta property="og:title" content="렛츠바이 Lets Buy"><meta property="og:description" content="자주 사는 것, 지금 사야 할지 알려드려요"><meta property="og:image" content="https://pyw31337.github.io/buy/og-image.png?v=0143"><meta property="og:url" content="https://pyw31337.github.io/buy/"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="https://pyw31337.github.io/buy/og-image.png?v=0143">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
-<link rel="stylesheet" href="style.css?v=20"></head>
+<link rel="stylesheet" href="style.css?v=19"></head>
 <body>
 <header class="top"><div class="tin">
   <a class="brand" href="#home" data-go="home"><img class="blogo" src="brand/favicon-192.png?v=0142" width="32" height="32" alt=""><b>렛츠바이</b></a>
@@ -37,6 +37,20 @@
     <div class="malls" id="mallRow"></div>
     <div class="privacy"><span class="sic big" data-i="shield"></span><div><b>내 데이터는 내 브라우저에만</b><p>서버도 회원가입도 없어요. 로그인된 메일 화면을 그대로 읽고, 결과는 이 브라우저에만 저장돼요.</p></div></div>
     <div class="samplebar"><span>분석이 부정확하면 샘플을 보내 주세요 · 개인정보는 자동으로 가려요</span><button class="btn ghost sampleBtn"><span data-i="download"></span> 메일 샘플 내려받기</button></div>
+    
+    <details class="manual" style="margin:32px 0;border:1px solid var(--line);border-radius:16px;padding:16px 20px;background:#fff">
+      <summary style="cursor:pointer;font-weight:700;font-size:16px">사용 방법 더 보기</summary>
+      <div style="margin-top:12px;font-size:14px;line-height:1.6;color:var(--ink2)">
+        <p><b>1. 확장으로 자동 수집 (추천)</b><br>확장 설치 후 네이버·Gmail 메일 탭에서 L 아이콘을 한 번 누르면 주문 메일을 읽어 분석합니다.</p>
+        <p><b>2. .eml 파일로 직접 추가</b><br>메일함에서 주문 메일을 .eml로 저장한 뒤, 이 페이지에 끌어다 놓거나 클릭해서 선택하세요. 이 브라우저 안에서만 읽습니다.</p>
+        <p><b>3. 데이터 백업 · 복원</b><br>페이지 맨 아래 <b>고급</b> 메뉴에서<br>
+        · 익스포트(JSON): 현재 분석 데이터를 파일로 저장<br>
+        · 임포트: 저장한 JSON을 불러오기 (덮어쓰기 또는 병합)<br>
+        · 구글 드라이브: 다른 기기에서 같은 계정으로 이어가기</p>
+        <p><b>4. 썸네일</b><br>이미지는 공유 캐시에서 자동으로 채워집니다. JSON에는 포함되지 않아도 불러온 뒤 빠르게 표시됩니다.</p>
+        <p style="margin-top:12px"><small>데이터는 기본적으로 이 브라우저에만 저장됩니다. 클라우드 기능은 원할 때만 사용하세요.</small></p>
+      </div>
+    </details>
     <div class="final"><h2>지금 메일함을 정리해 보세요</h2><a class="cta" href="https://github.com/pyw31337/buy/releases/latest/download/letsbuy-extension.zip"><span data-i="download"></span>확장 다운로드</a></div>
   </section>
   <section id="recs" class="tab">
@@ -57,50 +71,22 @@
     <label class="drop emlDrop"><input type="file" accept=".eml,message/rfc822" multiple hidden><span class="sic" data-i="mail"></span><span><b>.eml 파일 끌어다 놓기</b><br><small>메일함에서 내려받은 주문 메일을 여기에 놓거나 눌러서 고르세요 · 이 브라우저 안에서만 읽어요</small></span><em class="emlMsg"></em></label>
     <div class="samplebar"><span>결과가 이상하면 샘플을 보내 주세요 · 이름·전화·주소·주문번호는 자동으로 가려요</span><button class="btn ghost sampleBtn"><span data-i="download"></span> 메일 샘플 내려받기</button></div>
   </section>
-  <details class="adv" id="adv"><summary>고급</summary>
-    <div class="advwrap">
-      <section class="advsec primary">
-        <h3>데이터 백업 · 복원</h3>
-        <p class="hint">다른 기기에서 이어가거나 안전하게 보관하세요</p>
-        <div class="btnrow">
-          <button id="export" class="btn">익스포트 (JSON)</button>
-          <label class="btn ghost">임포트<input type="file" id="file" accept=".json" hidden></label>
-        </div>
-        <div class="btnrow">
-          <button id="gdriveSave" class="btn">구글 드라이브에 저장</button>
-          <button id="gdriveLoad" class="btn ghost">구글 드라이브에서 불러오기</button>
-        </div>
+  <details class="adv"><summary>고급</summary>
+    <div class="advgrid">
+      <div><b>메일 붙여넣기</b><input id="pSubject" placeholder="제목"><input id="pDate" type="date"><textarea id="pBody" rows="4" placeholder="본문"></textarea><button id="addPaste" class="btn sm">추가</button><p id="pasteMsg" class="hint"></p></div>
+      <div><b>데이터 백업 / 복원</b>
+        <div class="row" style="margin-bottom:8px"><button id="export" class="btn sm ghost">익스포트 (JSON)</button><label class="btn sm ghost" style="margin:0;cursor:pointer">임포트<input type="file" id="file" accept=".json" hidden></label></div>
+        <div class="row"><button id="gdriveSave" class="btn sm">구글 드라이브에 저장</button><button id="gdriveLoad" class="btn sm ghost">구글 드라이브에서 불러오기</button></div>
         <p class="hint" id="gdriveStatus">구글 계정으로 다른 기기에서 이어가기 (선택)</p>
-      </section>
-      <section class="advsec">
-        <h3>메일 직접 추가</h3>
-        <input id="pSubject" placeholder="제목">
-        <input id="pDate" type="date">
-        <textarea id="pBody" rows="3" placeholder="본문"></textarea>
-        <button id="addPaste" class="btn sm">추가</button>
-        <p id="pasteMsg" class="hint"></p>
-      </section>
-      <section class="advsec" id="aiBox" hidden>
-        <h3>AI 정리</h3>
-        <input id="aiModel" placeholder="qwen2.5:3b">
-        <div class="btnrow"><button class="btn sm" id="aiRun">정리</button><button class="btn sm ghost" id="aiReset">되돌리기</button></div>
-        <p id="aiMsg" class="hint"></p>
-      </section>
-      <section class="advsec">
-        <h3>상태 · 도구</h3>
-        <p id="extState" class="hint">확장 확인 중</p>
-        <div class="btnrow">
-          <button class="btn sm ghost sampleBtn"><span data-i="download"></span> 메일 샘플</button>
-          <button id="pullExt" class="btn sm ghost">다시 불러오기</button>
-          <button class="btn sm ghost" id="diagWeb">진단 파일</button>
-        </div>
-        <button id="reset" class="btn sm ghost danger">데이터 초기화</button>
-      </section>
+        <button id="reset" class="btn sm ghost danger" style="margin-top:8px">초기화</button>
+      </div>
+      <div id="aiBox" hidden><b>AI 정리</b><input id="aiModel" placeholder="qwen2.5:3b"><div class="row"><button class="btn sm" id="aiRun">정리</button><button class="btn sm ghost" id="aiReset">되돌리기</button></div><p id="aiMsg" class="hint"></p></div>
+      <div><b>상태</b><button class="btn sm ghost sampleBtn"><span data-i="download"></span> 메일 샘플 내려받기</button><p id="extState" class="hint">확장 확인 중</p><div class="row"><button id="pullExt" class="btn sm ghost">다시 불러오기</button><button class="btn sm ghost" id="diagWeb">진단 파일</button></div></div>
     </div>
   </details>
 </main>
 <div id="toast" class="toast"></div>
 <div id="sheet" class="sheet"><div class="sheet-body" id="sheetBody"></div></div>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="core.js?v=19"></script><script src="insights.js?v=19"></script><script src="sample.js?v=19"></script><script src="app.js?v=20"></script><script src="dash.js?v=19"></script><script src="products.js?v=19"></script>
+<script src="core.js?v=19"></script><script src="insights.js?v=19"></script><script src="sample.js?v=19"></script><script src="app.js?v=19"></script><script src="dash.js?v=19"></script><script src="products.js?v=19"></script>
 </body></html>
