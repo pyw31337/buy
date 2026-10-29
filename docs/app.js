@@ -292,7 +292,7 @@
     if (ok.length) merge(ok);
   };
   $('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); merge(j.orders, j.prices); toast(`${j.orders?.length || 0}건 불러옴`); } catch { toast('파일을 못 읽었어요'); } };
-  $('#export').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(store, null, 1)], { type: 'application/json' })); a.download = 'letsbuy-backup.json'; a.click(); };
+  $('#export').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(store, null, 1)], { type: 'application/json' })); a.download = 'letsbuy-backup.json'; a.click(); toast("백업 저장 (썸네일은 서버 캐시에서 채워짐)"); };
   $('#reset').onclick = () => { if (confirm('모두 지울까요?')) { store = { orders: [], prices: {}, aliases: {}, onboarded: true }; save(); demo = false; render(); } };
   $$('[data-i]').forEach(e => e.innerHTML = svg(e.dataset.i, e.classList.contains('sic') ? 26 : 18));
   $('#mallRow').innerHTML = ['쿠팡', '네이버페이', 'G마켓', '옥션', '11번가', 'SSG', '마켓컬리', '롯데ON', '오늘의집', '메가마트', '배민'].map(m => `<span class="mtile">${logo(m, 28)}${esc(mallName(m))}</span>`).join('') + '<span class="mtile more">+ Gmail · 네이버 메일</span>';
@@ -363,3 +363,61 @@
   $('#diagWeb').onclick = () => { window.postMessage({ app: 'letsbuy-web', type: 'diag' }, location.origin); setTimeout(() => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ at: new Date().toISOString(), ua: navigator.userAgent, ext: extInfo, orders: store.orders.length, malls: [...new Set(store.orders.map(o => o.mall))], sources: [...new Set(store.orders.map(o => o.source))], priceItems: Object.keys(store.prices).length, aliases: Object.keys(store.aliases).length, extLog }, null, 1)], { type: 'application/json' })); a.download = 'letsbuy-diagnostic.json'; a.click(); }, 600); };
   render();
 })();
+
+  // ===== Google Drive 동기화 (옵트인) =====
+  const GDRIVE_CLIENT_ID = "154827314076-66t4aaahcmpvmaua8qgnoobn2sd9a4j8.apps.googleusercontent.com";
+  let gToken = null;
+  async function gdriveAuth() {
+    return new Promise((resolve, reject) => {
+      if (!window.google) return reject(new Error("Google 스크립트 로딩 중"));
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: GDRIVE_CLIENT_ID,
+        scope: "https://www.googleapis.com/auth/drive.file",
+        callback: (resp) => resp.error ? reject(resp) : resolve(resp.access_token)
+      });
+      client.requestAccessToken();
+    });
+  }
+  async function gdriveFindOrCreate(token, name = "letsbuy-backup.json") {
+    const q = encodeURIComponent(`name='${name}' and trashed=false`);
+    const list = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+    if (list.files && list.files[0]) return list.files[0].id;
+    const meta = { name, mimeType: "application/json" };
+    const create = await fetch("https://www.googleapis.com/drive/v3/files", {
+      method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(meta)
+    }).then(r => r.json());
+    return create.id;
+  }
+  async function gdriveSave() {
+    try {
+      toast("구글 로그인 중...");
+      gToken = await gdriveAuth();
+      const id = await gdriveFindOrCreate(gToken);
+      const body = JSON.stringify({ ...store, exportedAt: new Date().toISOString() }, null, 1);
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, {
+        method: "PATCH", headers: { Authorization: `Bearer ${gToken}`, "Content-Type": "application/json" }, body
+      });
+      $("#gdriveStatus").textContent = "구글 드라이브에 저장됨 · " + new Date().toLocaleString("ko-KR");
+      toast("구글 드라이브에 저장했어요");
+    } catch (e) { console.error(e); toast("구글 드라이브 저장 실패"); }
+  }
+  async function gdriveLoad() {
+    try {
+      toast("구글 로그인 중...");
+      gToken = await gdriveAuth();
+      const id = await gdriveFindOrCreate(gToken);
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, { headers: { Authorization: `Bearer ${gToken}` } });
+      if (!res.ok) throw new Error("파일 없음");
+      const j = await res.json();
+      if (confirm(`드라이브 데이터(${j.orders?.length || 0}건)로 현재 데이터를 덮어쓸까요?\n취소하면 병합합니다.`)) {
+        store = Object.assign(store, j); save(); render();
+        toast("드라이브 데이터로 복원했어요");
+      } else {
+        merge(j.orders || [], j.prices || {});
+        toast("드라이브 데이터를 병합했어요");
+      }
+      $("#gdriveStatus").textContent = "드라이브에서 불러옴 · " + new Date().toLocaleString("ko-KR");
+    } catch (e) { console.error(e); toast("구글 드라이브에서 불러오기 실패"); }
+  }
+  if ($("#gdriveSave")) $("#gdriveSave").onclick = gdriveSave;
+  if ($("#gdriveLoad")) $("#gdriveLoad").onclick = gdriveLoad;
