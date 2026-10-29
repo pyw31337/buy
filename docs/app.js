@@ -27,6 +27,10 @@
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
     puzzle: '<path d="M19.4 14.9a1 1 0 0 1-.7-.9V13a2.5 2.5 0 1 0 0-5V6a2 2 0 0 0-2-2h-2a2.5 2.5 0 1 0-5 0H7.7A2 2 0 0 0 5.7 6v2.3a2.5 2.5 0 1 1 0 5V16a2 2 0 0 0 2 2h2.3a2.5 2.5 0 1 1 5 0h2.4a2 2 0 0 0 2-2z"/>',
     mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+    lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    shield: '<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+    bell: '<path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/><path d="M3.3 15.3A1 1 0 0 0 4 17h16a1 1 0 0 0 .7-1.7C19.4 14 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.4 6-2.7 7.3"/>',
+    cycle: '<path d="M21 12a9 9 0 0 0-9-9 9.8 9.8 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.8 9.8 0 0 0 6.7-2.7L21 16"/><path d="M16 16h5v5"/>',
     chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/>',
   };
   const svg = (k, sz = 24) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${P[k] || P.package}</svg>`;
@@ -75,10 +79,11 @@
   }
   function render() {
     const d = data(), items = LetsBuy.analyze(d.orders, d.today, d.aliases);
-    const empty = !store.orders.length && !demo;
-    $('#start').style.display = empty ? 'block' : 'none'; $('#results').style.display = empty ? 'none' : 'block';
+    const has = !!(store.orders.length || demo);
+    $('[data-tab=recs]').style.display = $('[data-tab=items]').style.display = has ? '' : 'none';
+    if (!has && cur !== 'home') go('home');
     $('#mode').innerHTML = demo ? '<b>데모</b> <button class="link" id="exitDemo">끄기</button>' : store.orders.length ? `주문 ${store.orders.length}건` : '';
-    if ($('#exitDemo')) $('#exitDemo').onclick = () => { demo = false; render(); };
+    if ($('#exitDemo')) $('#exitDemo').onclick = () => { demo = false; render(); if (!store.orders.length) go('home'); };
     $('#today').textContent = md(d.today) + ' 기준';
     const due = items.filter(i => i.type !== '시즌' && i.daysLeft <= 14), season = items.filter(i => i.type === '시즌');
     $('#headline').textContent = due.length ? `살 때 된 물건 ${due.length}개` : '지금 살 건 없어요';
@@ -113,15 +118,19 @@
     $('#sheet').classList.add('on'); $('#x').onclick = () => $('#sheet').classList.remove('on');
   }
   $('#sheet').onclick = e => { if (e.target.id === 'sheet') e.target.classList.remove('on'); };
-  $$('#tabs button').forEach(b => b.onclick = () => { $$('#tabs button,.tab').forEach(e => e.classList.remove('on')); b.classList.add('on'); $('#' + b.dataset.tab).classList.add('on'); });
+  let cur = 'home';
+  function go(t) { cur = t; $$('#tabs button,.tab').forEach(e => e.classList.remove('on')); $('[data-tab=' + t + ']').classList.add('on'); $('#' + t).classList.add('on'); if (location.hash !== '#' + t) history.replaceState(null, '', '#' + t); scrollTo(0, 0); }
+  $$('#tabs button').forEach(b => b.onclick = () => go(b.dataset.tab));
+  $('.brand').onclick = e => { e.preventDefault(); go('home'); };
   $$('#filter button').forEach(b => b.onclick = () => { $$('#filter button').forEach(e => e.classList.remove('on')); b.classList.add('on'); filter = b.dataset.f; render(); });
   $('#q').oninput = render;
   function merge(orders, prices, fromExt) {
     if (fromExt) store.orders = store.orders.filter(o => o.source === 'paste');
+    orders = LetsBuy.dedupe(orders || []);
     const seen = new Set(store.orders.map(o => o.date + o.name));
     for (const o of orders || []) if (!seen.has(o.date + o.name)) { store.orders.push(o); seen.add(o.date + o.name); }
     for (const [k, v] of Object.entries(prices || {})) { const m = new Map((store.prices[k] || []).map(p => [p.date, p])); v.forEach(p => m.set(p.date, p)); store.prices[k] = [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1); }
-    save(); demo = !store.orders.length; render();
+    store.orders = LetsBuy.dedupe(store.orders); save(); demo = false; render();
   }
   $('#addPaste').onclick = () => {
     const r = LetsBuy.parseMail({ subject: $('#pSubject').value, date: $('#pDate').value, body: $('#pBody').value, from: '' });
@@ -132,8 +141,11 @@
   $('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); merge(j.orders, j.prices); toast(`${j.orders?.length || 0}건 불러옴`); } catch { toast('파일을 못 읽었어요'); } };
   $('#export').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(store, null, 1)], { type: 'application/json' })); a.download = 'letsbuy-backup.json'; a.click(); };
   $('#reset').onclick = () => { if (confirm('모두 지울까요?')) { store = { orders: [], prices: {}, aliases: {}, onboarded: true }; save(); demo = false; render(); } };
-  $$('[data-i]').forEach(e => e.innerHTML = svg(e.dataset.i, 26));
-  $('#demo').onclick = () => { demo = true; render(); };
+  $$('[data-i]').forEach(e => e.innerHTML = svg(e.dataset.i, e.classList.contains('sic') ? 26 : 18));
+  $('#mallRow').innerHTML = ['쿠팡', '네이버페이', 'G마켓', '옥션', '11번가', 'SSG', '마켓컬리', '오늘의집', '무신사', '알리익스프레스'].map(m => `<span class="mtile"><span class="mlogo" style="--c:${MC[m] || '#77777F'}">${esc({ '쿠팡': 'C', '네이버페이': 'N', 'G마켓': 'G', '옥션': 'A', '11번가': '11', 'SSG': 'S', '마켓컬리': 'K', '오늘의집': 'O', '무신사': 'M', '알리익스프레스': 'Ali' }[m])}</span>${esc(m)}</span>`).join('') + '<span class="mtile more">+ Gmail · 네이버 메일</span>';
+  { const sd = { ...LETSBUY_SAMPLE, aliases: {} }; $('#mockCards').innerHTML = LetsBuy.analyze(sd.orders, sd.today, {}).slice(0, 3).map(i => card(i, sd)).join(''); }
+  go(store.orders.length && location.hash !== '#home' ? (['recs', 'items'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'recs') : 'home');
+  $('#demo').onclick = () => { demo = true; render(); go('recs'); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
   let extInfo = null, extLog = [];
   window.addEventListener('message', e => {
