@@ -1,4 +1,12 @@
 {
+ "lotteon2": {
+  "from": "롯데ON <lotteon@lotte.net>",
+  "subject": "[롯데ON] 주문해 주셔서 감사합니다"
+ },
+ "ssg": {
+  "from": "\"SSG.COM\" <ssgadmin@ssg.com>",
+  "subject": "[SSG.COM] 홍*동 고객님께서 주문하신 상품내역입니다."
+ },
  "baemin": {
   "from": "배민 장보기·쇼핑 <noreply@woowahan.com>",
   "subject": "[배민 장보기·쇼핑] 주문내역 안내메일입니다."
@@ -7,6 +15,18 @@
   "from": "쿠팡 <noreply@e.coupang.com>",
   "subject": "[쿠팡] 홍*동님 주문하신 내역을 확인해주세요."
  },
+ "lotteon": {
+  "from": "롯데ON <lotteon@lotte.net>",
+  "subject": "[롯데ON] 주문해 주셔서 감사합니다"
+ },
+ "gmarket2": {
+  "from": "G마켓 <mailmaster@corp.gmarket.co.kr>",
+  "subject": "[G마켓] 2026년 09월 15일 주문하신 상품의 결제가 완료되었습니다."
+ },
+ "naverpay": {
+  "from": "네이버페이 <naverpayadmin_noreply@navercorp.com>",
+  "subject": "[네이버페이] 결제하신 내역을 안내해드립니다."
+ },
  "megamart": {
   "from": "메가마트 <shopping@megamart.com>",
   "subject": "[메가마트몰] 주문 내역 안내"
@@ -14,6 +34,10 @@
  "gmarket": {
   "from": "G마켓 <mailmaster@corp.gmarket.co.kr>",
   "subject": "홍*동님, 주문하신 상품이 10월 05일에 발송되었습니다."
+ },
+ "auction": {
+  "from": "옥션 <auction@auction.co.kr>",
+  "subject": "주문하신 상품이 발송되었습니다"
  },
  "11st": {
   "from": "11번가 <admin@11st.co.kr>",

@@ -132,6 +132,25 @@
     for (const [k, v] of Object.entries(prices || {})) { const m = new Map((store.prices[k] || []).map(p => [p.date, p])); v.forEach(p => m.set(p.date, p)); store.prices[k] = [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1); }
     store.orders = LetsBuy.dedupe(store.orders); save(); demo = false; render();
   }
+
+  // .eml 끌어다 놓기 — 파일은 서버로 보내지 않고 이 브라우저에서 바로 해석
+  async function importEml(files) {
+    files = [...files].filter(f => /\.eml$/i.test(f.name) || f.type === 'message/rfc822');
+    if (!files.length) { toast('.eml 파일만 읽을 수 있어요'); return; }
+    let found = [], none = 0;
+    for (const f of files) {
+      const buf = new Uint8Array(await f.arrayBuffer()); let bin = ''; for (let i = 0; i < buf.length; i += 32768) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 32768));
+      const r = LetsBuy.parseMail(LetsBuy.parseEml(bin)).filter(o => o.date).map(o => ({ ...o, source: 'paste' }));
+      r.length ? found.push(...r) : none++;
+    }
+    const msg = `${files.length}개 메일 · 상품 ${found.length}개` + (none ? ` · ${none}개는 못 읽음` : '');
+    $$('.emlMsg').forEach(e => e.textContent = msg); toast(msg);
+    if (found.length) { merge(found); go('items'); }
+  }
+  $$('.emlDrop input').forEach(i => i.onchange = () => { importEml(i.files); i.value = ''; });
+  addEventListener('dragover', e => { if ([...(e.dataTransfer.types || [])].includes('Files')) { e.preventDefault(); document.body.classList.add('dragging'); } });
+  addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('dragging'); });
+  addEventListener('drop', e => { if (!e.dataTransfer.files.length) return; e.preventDefault(); document.body.classList.remove('dragging'); importEml(e.dataTransfer.files); });
   $('#addPaste').onclick = () => {
     const r = LetsBuy.parseMail({ subject: $('#pSubject').value, date: $('#pDate').value, body: $('#pBody').value, from: '' });
     const ok = r.filter(o => o.date).map(o => ({ ...o, source: 'paste' }));

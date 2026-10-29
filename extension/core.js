@@ -31,13 +31,14 @@
     if (BAD.test(s) || /[<>{}=]/.test(s)) return false;
     if (/(다|요|니다|세요|시오|함|음)\s*[.!?]?$|[.!?]$/.test(s)) return false;          // 문장
     if (/^(의|및|을|를|이|가|은|는|와|과|에|로|으로|또는|단)\s|^[※*\-·•]/.test(s)) return false;   // 조각
+    if (/특별시|광역시|\(\d{5}\)|^\[\d{5}\]|^주문\s*(상품|내역)|보기$|\d+\s*건$/.test(s)) return false;
     if (/https?:|www\.|@|\.com|\.co\.kr/i.test(s)) return false;
     if (!/[가-힣A-Za-z]{2,}/.test(s)) return false;
     if (/^[\d\s,.:\-\/원개()]+$/.test(s)) return false;
     if ((s.match(/\s/g) || []).length > 14) return false;
     return true;
   }
-  const BAD_IMG = /logo|banner|icon|btn|button|spacer|blank|pixel|track|open\?|1x1|bg_|arrow|bullet|line|footer|header|sns|facebook|kakao|insta|youtube|badge|stamp|_tit|title|common/i;
+  const BAD_IMG = /logo|banner|icon|btn|button|spacer|blank|pixel|track|open\?|1x1|bg_|arrow|bullet|line|footer|header|sns|facebook|kakao|insta|youtube|badge|ship-to|cart_|billing|stamp|_tit|title|common/i;
 
   // HTML → 순서대로 텍스트 칸/이미지 토큰 (DOM 없이 동작: 확장·웹·Node 공용)
   function htmlTokens(html) {
@@ -127,9 +128,44 @@
     }
     return out;
   }
+  // ③ 상품 사진 뒤 블록 — 네이버페이·SSG·롯데ON형 (사진 → [판매처] → 상품명 → 옵션/수량/금액)
+  function imgBlockItems(toks) {
+    const out = [];
+    for (let i = 0; i < toks.length; i++) {
+      if (!goodImg(toks[i])) continue;
+      let j = -1, name = '';
+      for (let k = 1; k <= 3 && toks[i + k]; k++) { const t = toks[i + k]; if (t.img) break; const n = normName(t.t); if (isProductName(n)) { j = i + k; name = n; break; } }
+      if (j < 0 && toks[i].alt && isProductName(clean(toks[i].alt))) { j = i; name = clean(toks[i].alt); }
+      if (j < 0) continue;
+      let price = null, qty = 1;
+      for (let k = j + 1; k < Math.min(toks.length, j + 9); k++) {
+        if (goodImg(toks[k])) break; const t = (toks[k].t || '').trim(); if (!t) continue;
+        if (/^결제\s*금액/.test(t)) break;
+        if (STOP.test(t) && !/^(상품\s*금액|주문\s*금액)$/.test(t)) break;
+        const q = t.match(/수량\s*[:：]?\s*(\d+)/); if (q) qty = +q[1];
+        if (/^수량$/.test(t) && /^\d{1,3}$/.test((toks[k + 1] || {}).t || '')) qty = +toks[k + 1].t;
+        if (/^(주문\s*금액|상품\s*금액|판매가)$/.test(t) && price == null) { const p = won((toks[k + 1] || {}).t || ''); if (p) price = p; }
+        const pc = priceCell(t); if (pc && price == null && /,/.test(t)) { price = pc.p; if (pc.q) qty = pc.q; }
+        const pq = t.match(/^([0-9,]+)\s*원\s*\/?\s*(\d+)\s*개$/); if (pq) { price = +pq[1].replace(/,/g, ''); qty = +pq[2]; }
+      }
+      if (j === i && price == null) continue;
+      out.push({ name, price, qty, img: toks[i].img });
+      i = j;
+    }
+    return out;
+  }
+  // ④ 주문번호 → 결제금액 → 상품명 반복 — 옥션 발송 메일형 (주문번호가 상품마다 다름)
+  function orderBlockItems(toks) {
+    const T = toks.map(t => (t.t || '').trim()), out = [];
+    for (let i = 0; i + 4 < T.length; i++) if (/^주문\s*번호$/.test(T[i]) && /^[0-9A-Z\-]{8,24}$/.test(T[i + 1]) && /^결제\s*금액$/.test(T[i + 2]) && won(T[i + 3])) {
+      const name = normName(T[i + 4]); if (isProductName(name)) out.push({ name, price: won(T[i + 3]), qty: 1, orderNo: T[i + 1] });
+    }
+    return out;
+  }
+  const totalOf = T => { for (let i = 0; i < T.length - 1; i++) if (/^(총\s*결제\s*금액|최종\s*결제\s*금액|결제\s*금액)$/.test(T[i])) { const p = won(T[i + 1]) || won(T[i + 1] + (T[i + 2] === '원' ? '원' : '')) || won(T[i + 2] || ''); if (p) return p; } return null; };
   function parseItems(text) { return itemsFromTokens(String(text || '').split(/\n+/).flatMap(l => l.includes('|') ? l.split('|') : [l]).map(t => ({ t: t.trim() })).filter(t => t.t)); }
-  const clean = s => String(s).replace(/\[[^\]]*(무료|특가|배송|당일|단독|행사)[^\]]*\]|\([^)]*옵션[^)]*\)|\s*(옵션|선택)\s*[:：].*$|\s*\/\s*\d+\s*개\s*$/g, ' ').replace(/[★☆♥●■◆▶]+/g, ' ').replace(/\s+/g, ' ').trim();
-  const orderNoOf = t => (t.match(/주문\s*번호\s*[:：]?\s*([0-9A-Z\-]{8,24})/) || [])[1] || null;
+  const clean = s => String(s).replace(/\[[^\]]*(무료|특가|배송|당일|단독|행사)[^\]]*\]|\([^)]*옵션[^)]*\)|\s*(옵션|선택)\s*[:：].*$|\s*\/\s*\d+\s*개\s*$|\s*발송일\s*[:：].*$/g, ' ').replace(/[★☆♥●■◆▶]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const orderNoOf = t => (t.match(/주문\s*번호\s*[:：│|]?\s*([0-9A-Z\-]{8,24})/) || t.match(/장바구니\s*번호\s*[:：]?\s*([0-9]{8,20})/) || [])[1] || null;
 
   /** mail: {subject, from, date, body?, html?} → orders[] */
   // quoted-printable(=3D, =EC=82=BC ...) 원문 디코딩
@@ -138,6 +174,25 @@
     const raw = h.replace(/=\r?\n/g, '');
     const bytes = []; for (let i = 0; i < raw.length; i++) { if (raw[i] === '=' && /^[0-9A-F]{2}$/i.test(raw.substr(i + 1, 2))) { bytes.push(parseInt(raw.substr(i + 1, 2), 16)); i += 2; } else { const c = raw.charCodeAt(i); if (c < 128) bytes.push(c); else bytes.push(...new TextEncoder().encode(raw[i])); } }
     try { return new TextDecoder('utf-8').decode(new Uint8Array(bytes)); } catch { return h; }
+  }
+
+  // .eml 원문(바이트를 latin1 문자열로) → {subject, from, date, html|body} — 브라우저 안에서만 처리
+  function parseEml(raw) {
+    raw = String(raw).replace(/\r\n/g, '\n');
+    const bytesTo = (bin, cs) => { const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i) & 255; try { return new TextDecoder(/euc-?kr|ks_c_5601|cp949/i.test(cs || '') ? 'euc-kr' : (cs || 'utf-8')).decode(u); } catch { return new TextDecoder('utf-8').decode(u); } };
+    const qp = s => s.replace(/=\n/g, '').replace(/=([0-9A-F]{2})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    const b64 = s => { try { return atob(s.replace(/[^A-Za-z0-9+/=]/g, '')); } catch { return ''; } };
+    const split = part => { const i = part.indexOf('\n\n'); const hd = (i < 0 ? part : part.slice(0, i)).replace(/\n[ \t]+/g, ' '); const H = {}; hd.split('\n').forEach(l => { const m = l.match(/^([\w-]+):\s*(.*)$/); if (m) H[m[1].toLowerCase()] = m[2]; }); return { H, body: i < 0 ? '' : part.slice(i + 2) }; };
+    const word = v => String(v || '').replace(/\?=\s+=\?/g, '?==?').replace(/=\?([^?]+)\?([BQ])\?([^?]*)\?=/gi, (_, cs, e, t) => bytesTo(/b/i.test(e) ? b64(t) : qp(t.replace(/_/g, ' ')), cs));
+    const decodeBody = (H, body) => { const te = (H['content-transfer-encoding'] || '').toLowerCase(); const cs = ((H['content-type'] || '').match(/charset="?([^";\s]+)/i) || [])[1]; const bin = te.includes('base64') ? b64(body) : te.includes('quoted') ? qp(body) : body; return bytesTo(bin, cs); };
+    let html = null, text = null;
+    const walk = part => { const { H, body } = split(part); const ct = H['content-type'] || 'text/plain'; const bd = (ct.match(/boundary="?([^";]+)"?/i) || [])[1];
+      if (/multipart\//i.test(ct) && bd) { body.split('--' + bd).slice(1).forEach(p => { if (!/^--/.test(p)) walk(p.replace(/^\n/, '')); }); return; }
+      if (/text\/html/i.test(ct) && html == null) html = decodeBody(H, body); else if (/text\/plain/i.test(ct) && text == null) text = decodeBody(H, body); };
+    walk(raw);
+    const { H } = split(raw); const d = new Date(H.date || '');
+    const date = isNaN(d) ? '' : new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 10); // 한국 시간 기준
+    return { subject: word(H.subject), from: word(H.from), date, html: html || undefined, body: html ? undefined : (text || '') };
   }
   function parseMail(mail) {
     const toks = mail.html ? htmlTokens(decodeQP(String(mail.html))) : null;
@@ -148,11 +203,14 @@
     const mall = detectMall(text, mail.from);
     const date = parseDate(mail.date || '', null) || parseDate(text, null);
     const orderNo = orderNoOf(body);
-    let items = toks ? tableItems(toks) : [];
+    let items = toks ? orderBlockItems(toks) : [];
+    if (!items.length && toks) items = tableItems(toks);
+    if (!items.length && toks) items = imgBlockItems(toks);
     if (!items.length && toks) items = itemsFromTokens(toks);
     if (!items.length && toks) items = labelItems(toks);
     if (!items.length) items = parseItems(body);
-    return items.map(it => ({ ...it, mall, date, orderNo: orderNo || undefined, source: 'mail' }));
+    if (items.length === 1 && items[0].price == null && toks) { const p = totalOf(toks.map(t => (t.t || '').trim())); if (p) items[0].price = p; }
+    return items.map(it => ({ ...it, mall, date, orderNo: it.orderNo || orderNo || undefined, source: 'mail' }));
   }
   // 같은 주문이 주문완료·발송·배송완료 메일로 여러 번 → 하나로. 주문번호 같으면 같은 주문, 없으면 같은 쇼핑몰·이름 5일 이내
   function dedupe(orders) {
@@ -246,6 +304,6 @@
     return out;
   }
 
-  const api = { tableItems, labelItems, normName, decodeQP, isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
+  const api = { parseEml, imgBlockItems, orderBlockItems, tableItems, labelItems, normName, decodeQP, isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
   if (typeof module !== 'undefined') module.exports = api; else root.LetsBuy = api;
 })(typeof self !== 'undefined' ? self : this);
