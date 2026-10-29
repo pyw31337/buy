@@ -5,7 +5,7 @@
 <link rel="icon" href="favicon.ico?v=0142" sizes="any"><link rel="icon" href="brand/favicon-32.png?v=0142" sizes="32x32"><link rel="apple-touch-icon" href="brand/apple-touch-icon.png?v=0142"><link rel="manifest" href="manifest.webmanifest?v=0142"><meta name="theme-color" content="#0A1C38">
 <meta property="og:type" content="website"><meta property="og:title" content="렛츠바이 Lets Buy"><meta property="og:description" content="자주 사는 것, 지금 사야 할지 알려드려요"><meta property="og:image" content="https://pyw31337.github.io/buy/og-image.png?v=0143"><meta property="og:url" content="https://pyw31337.github.io/buy/"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="https://pyw31337.github.io/buy/og-image.png?v=0143">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
-<link rel="stylesheet" href="style.css?v=18"></head>
+<link rel="stylesheet" href="style.css?v=19"></head>
 <body>
 <header class="top"><div class="tin">
   <a class="brand" href="#home" data-go="home"><img class="blogo" src="brand/favicon-192.png?v=0142" width="32" height="32" alt=""><b>렛츠바이</b></a>
@@ -60,7 +60,12 @@
   <details class="adv"><summary>고급</summary>
     <div class="advgrid">
       <div><b>메일 붙여넣기</b><input id="pSubject" placeholder="제목"><input id="pDate" type="date"><textarea id="pBody" rows="4" placeholder="본문"></textarea><button id="addPaste" class="btn sm">추가</button><p id="pasteMsg" class="hint"></p></div>
-      <div><b>파일</b><input type="file" id="file" accept=".json"><div class="row"><button id="export" class="btn sm ghost">백업</button><button id="reset" class="btn sm ghost danger">초기화</button></div></div>
+      <div><b>데이터 백업 / 복원</b>
+        <div class="row" style="margin-bottom:8px"><button id="export" class="btn sm ghost">익스포트 (JSON)</button><label class="btn sm ghost" style="margin:0;cursor:pointer">임포트<input type="file" id="file" accept=".json" hidden></label></div>
+        <div class="row"><button id="gdriveSave" class="btn sm">구글 드라이브에 저장</button><button id="gdriveLoad" class="btn sm ghost">구글 드라이브에서 불러오기</button></div>
+        <p class="hint" id="gdriveStatus">구글 계정으로 다른 기기에서 이어가기 (선택)</p>
+        <button id="reset" class="btn sm ghost danger" style="margin-top:8px">초기화</button>
+      </div>
       <div id="aiBox" hidden><b>AI 정리</b><input id="aiModel" placeholder="qwen2.5:3b"><div class="row"><button class="btn sm" id="aiRun">정리</button><button class="btn sm ghost" id="aiReset">되돌리기</button></div><p id="aiMsg" class="hint"></p></div>
       <div><b>상태</b><button class="btn sm ghost sampleBtn"><span data-i="download"></span> 메일 샘플 내려받기</button><p id="extState" class="hint">확장 확인 중</p><div class="row"><button id="pullExt" class="btn sm ghost">다시 불러오기</button><button class="btn sm ghost" id="diagWeb">진단 파일</button></div></div>
     </div>
@@ -68,5 +73,6 @@
 </main>
 <div id="toast" class="toast"></div>
 <div id="sheet" class="sheet"><div class="sheet-body" id="sheetBody"></div></div>
-<script src="core.js?v=18"></script><script src="insights.js?v=18"></script><script src="sample.js?v=18"></script><script src="app.js?v=18"></script><script src="dash.js?v=18"></script><script src="products.js?v=18"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="core.js?v=19"></script><script src="insights.js?v=19"></script><script src="sample.js?v=19"></script><script src="app.js?v=19"></script><script src="dash.js?v=19"></script><script src="products.js?v=19"></script>
 </body></html>
