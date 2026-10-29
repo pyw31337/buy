@@ -2,7 +2,7 @@
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>렛츠바이</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
-<link rel="stylesheet" href="style.css?v=5"></head>
+<link rel="stylesheet" href="style.css?v=6"></head>
 <body>
 <header class="top">
   <a class="brand" href="#home" data-go="home"><span class="logo">L</span><b>렛츠바이</b></a>
@@ -32,6 +32,7 @@
     <h2 class="lh">지원하는 곳</h2>
     <div class="malls" id="mallRow"></div>
     <div class="privacy"><span class="sic big" data-i="shield"></span><div><b>내 데이터는 내 브라우저에만</b><p>서버도 회원가입도 없어요. 로그인된 메일 화면을 그대로 읽고, 결과는 이 브라우저에만 저장돼요.</p></div></div>
+    <div class="samplebar"><span>분석이 부정확하면 샘플을 보내 주세요 · 개인정보는 자동으로 가려요</span><button class="btn ghost sampleBtn"><span data-i="download"></span> 메일 샘플 내려받기</button></div>
     <div class="final"><h2>지금 메일함을 정리해 보세요</h2><a class="cta" href="https://github.com/pyw31337/buy/releases/latest/download/letsbuy-extension.zip"><span data-i="download"></span>확장 다운로드</a></div>
   </section>
   <section id="recs" class="tab">
@@ -44,17 +45,18 @@
   <section id="items" class="tab">
     <div class="toolbar"><input id="q" placeholder="검색"><div class="seg" id="filter"><button data-f="all" class="on">전체</button><button data-f="주기">주기</button><button data-f="시즌">시즌</button><button data-f="기타">비정기</button></div></div>
     <div class="list" id="list"></div>
+    <div class="samplebar"><span>결과가 이상하면 샘플을 보내 주세요 · 이름·전화·주소·주문번호는 자동으로 가려요</span><button class="btn ghost sampleBtn"><span data-i="download"></span> 메일 샘플 내려받기</button></div>
   </section>
   <details class="adv"><summary>고급</summary>
     <div class="advgrid">
       <div><b>메일 붙여넣기</b><input id="pSubject" placeholder="제목"><input id="pDate" type="date"><textarea id="pBody" rows="4" placeholder="본문"></textarea><button id="addPaste" class="btn sm">추가</button><p id="pasteMsg" class="hint"></p></div>
       <div><b>파일</b><input type="file" id="file" accept=".json"><div class="row"><button id="export" class="btn sm ghost">백업</button><button id="reset" class="btn sm ghost danger">초기화</button></div></div>
       <div><b>로컬 AI (Ollama)</b><input id="aiModel" placeholder="qwen2.5:3b"><div class="row"><button class="btn sm" id="aiRun">정리</button><button class="btn sm ghost" id="aiReset">되돌리기</button></div><p id="aiMsg" class="hint"></p></div>
-      <div><b>상태</b><p id="extState" class="hint">확장 확인 중</p><div class="row"><button id="pullExt" class="btn sm ghost">다시 불러오기</button><button class="btn sm ghost" id="diagWeb">진단 파일</button></div></div>
+      <div><b>상태</b><button class="btn sm ghost sampleBtn"><span data-i="download"></span> 메일 샘플 내려받기</button><p id="extState" class="hint">확장 확인 중</p><div class="row"><button id="pullExt" class="btn sm ghost">다시 불러오기</button><button class="btn sm ghost" id="diagWeb">진단 파일</button></div></div>
     </div>
   </details>
 </main>
 <div id="toast" class="toast"></div>
 <div id="sheet" class="sheet"><div class="sheet-body" id="sheetBody"></div></div>
-<script src="core.js?v=5"></script><script src="sample.js?v=5"></script><script src="app.js?v=5"></script>
+<script src="core.js?v=6"></script><script src="sample.js?v=6"></script><script src="app.js?v=6"></script>
 </body></html>

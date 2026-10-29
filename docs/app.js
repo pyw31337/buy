@@ -151,7 +151,7 @@
   window.addEventListener('message', e => {
     if (e.source !== window || e.origin !== location.origin || !e.data || e.data.app !== 'letsbuy-ext') return;
     if (e.data.type === 'diag') extLog = e.data.diag;
-    if (e.data.type === 'hello') { extInfo = { version: e.data.version }; $('#extState').textContent = '확장 연결됨'; $('#extState').classList.add('on'); $('.cta').textContent = '메일 탭에서 L 아이콘을 누르세요'; $('.cta').removeAttribute('href'); window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*'); }
+    if (e.data.type === 'hello') { extInfo = { version: e.data.version }; $('#extState').textContent = '확장 연결됨'; $('#extState').classList.add('on'); window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*'); }
     if (e.data.type === 'data') { merge(e.data.orders, e.data.prices, true); $('#extState').textContent = `확장 v${e.data.version} · 주문 ${e.data.orders.length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
   });
   $('#pullExt').onclick = () => window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*');
@@ -171,6 +171,25 @@
     } catch (e) { $('#aiMsg').textContent = 'Ollama 연결 안 됨'; }
   };
   $('#aiReset').onclick = () => { store.aliases = {}; save(); render(); toast('되돌렸어요'); };
+  // 메일 샘플 내려받기: 쇼핑몰별 최대 5통, 개인정보 자동 가림
+  const mask = h => String(h || '')
+    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '***@***')
+    .replace(/01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/g, '010-****-****')
+    .replace(/0\d{1,2}-\d{3,4}-\d{4}/g, '0**-****-****')
+    .replace(/\d{8,}/g, m => m.slice(0, 2) + '*'.repeat(m.length - 4) + m.slice(-2))
+    .replace(/([가-힣])[가-힣]{1,3}(\s*)(님|고객님)/g, '$1**$2$3')
+    .replace(/(받는\s*(분|사람)|수령인|주문자|구매자|이름|성명)(\s*[:：]?\s*(<[^>]*>\s*)*)[가-힣]{2,4}/g, '$1$3***')
+    .replace(/(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|충청|전북|전남|전라|경북|경남|경상|제주)[가-힣]*\s[^<\n]{2,80}/g, '$1 (주소 가림)')
+    .replace(/\(\d{5}\)|우편번호\s*[:：]?\s*\d{5}/g, '(*****)');
+  function exportSamples(mails) {
+    if (!mails.length) { toast('보관된 메일이 없어요 · 메일 탭에서 L 아이콘을 다시 눌러 주세요'); return; }
+    const by = {};
+    for (const m of mails) { const k = LetsBuy.detectMall(m.subject + ' ' + (m.html || '').replace(/<[^>]+>/g, ' ').slice(0, 3000), m.from); (by[k] = by[k] || []).length < 5 && by[k].push({ subject: mask(m.subject), from: String(m.from || '').replace(/"?[가-힣]{2,4}"?\s*</, '<').replace(/[\w.+-]+@/, '***@'), date: m.date, html: mask(m.html) }); }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ at: new Date().toISOString(), total: mails.length, malls: by }, null, 1)], { type: 'application/json' }));
+    a.download = 'letsbuy-mail-samples.json'; a.click(); toast(`${Object.values(by).flat().length}통 저장 · 개인정보는 가렸어요`);
+  }
+  window.addEventListener('message', e => { if (e.source === window && e.data && e.data.app === 'letsbuy-ext' && e.data.type === 'mails') exportSamples(e.data.mails); });
+  $$('.sampleBtn').forEach(b => b.onclick = () => { if (!extInfo) { toast('확장이 연결되어 있어야 해요'); return; } window.postMessage({ app: 'letsbuy-web', type: 'mails' }, location.origin); });
   $('#diagWeb').onclick = () => { window.postMessage({ app: 'letsbuy-web', type: 'diag' }, location.origin); setTimeout(() => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ at: new Date().toISOString(), ua: navigator.userAgent, ext: extInfo, orders: store.orders.length, malls: [...new Set(store.orders.map(o => o.mall))], sources: [...new Set(store.orders.map(o => o.source))], priceItems: Object.keys(store.prices).length, aliases: Object.keys(store.aliases).length, extLog }, null, 1)], { type: 'application/json' })); a.download = 'letsbuy-diagnostic.json'; a.click(); }, 600); };
   render();
 })();

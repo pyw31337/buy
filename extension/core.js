@@ -24,11 +24,11 @@
   }
 
   // ── 상품명 판정: 약관·안내 문장 걸러내기 ──
-  const BAD = /(교환|반품|환불|판매자|의무|책임|안내|경우|약관|고객센터|문의|규정|정책|동의|개인정보|수신|거부|발송|배송지|배송비|배송|주문번호|주문일|결제|합계|할인|적립|쿠폰|포인트|금액|사유|훼손|분실|유출|부담|요청|가치|감소|청약|철회|소비자|분쟁|보상|기준|법|저작|copyright|all rights|무단|본 메일|이 메일|발신전용|회신|확인하기|바로가기|자세히|클릭|로그인|회원|수량|옵션|스토어|판매처|상점|사업자|대표|이벤트|혜택|광고|구독|주소|연락처|휴대폰|전화|이메일|받는 ?분|수령|도착|예정|영수증|카드|일시불|할부|입금|계좌|무통장|처리|완료|접수|상태|조회|변경|취소|택배|운송장|송장)/i;
+  const BAD = /(교환|반품|환불|판매자|의무|책임|안내|경우|약관|고객센터|문의|규정|정책|동의|개인정보|수신|거부|발송|배송지|배송비|배송|주문번호|주문일|결제|합계|할인|적립|쿠폰|포인트|금액|사유|훼손|분실|유출|부담|요청|가치|감소|청약|철회|소비자|분쟁|보상|기준|법|저작|copyright|all rights|무단|본 메일|이 메일|발신전용|회신|확인하기|바로가기|자세히|클릭|로그인|회원|가격|tbody|thead|수량|옵션|스토어|판매처|상점|사업자|대표|이벤트|혜택|광고|구독|주소|연락처|휴대폰|전화|이메일|받는 ?분|수령|도착|예정|영수증|카드|일시불|할부|입금|계좌|무통장|처리|완료|접수|상태|조회|변경|취소|택배|운송장|송장)/i;
   function isProductName(s) {
     s = String(s || '').trim();
     if (s.length < 4 || s.length > 90) return false;
-    if (BAD.test(s)) return false;
+    if (BAD.test(s) || /[<>{}=]/.test(s)) return false;
     if (/(다|요|니다|세요|시오|함|음)\s*[.!?]?$|[.!?]$/.test(s)) return false;          // 문장
     if (/^(의|및|을|를|이|가|은|는|와|과|에|로|으로|또는|단)\s|^[※*\-·•]/.test(s)) return false;   // 조각
     if (/https?:|www\.|@|\.com|\.co\.kr/i.test(s)) return false;
@@ -42,13 +42,14 @@
   // HTML → 순서대로 텍스트 칸/이미지 토큰 (DOM 없이 동작: 확장·웹·Node 공용)
   function htmlTokens(html) {
     html = String(html || '').replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ');
-    const out = []; const re = /<img\b[^>]*>|<\/?(td|th|tr|div|p|li|br|h\d|table|span|a|strong|b|font)\b[^>]*>|([^<]+)/gi; let m;
+    const out = []; const re = /<img\b[^>]*>|<\/?([a-z][a-z0-9]*)\b[^>]*>|([^<]+)|</gi; let m;
     let buf = '';
     const flush = () => { const t = decode(buf).replace(/\s+/g, ' ').trim(); if (t) out.push({ t }); buf = ''; };
     while ((m = re.exec(html))) {
       if (m[0].startsWith('<img')) { flush(); const src = (m[0].match(/src\s*=\s*["']([^"']+)/i) || [])[1] || ''; const w = +((m[0].match(/width\s*=\s*["']?(\d+)/i) || [])[1] || 0); out.push({ img: decode(src), w }); }
       else if (m[2] !== undefined) buf += m[2];
-      else if (/^<\/?(span|a|strong|b|font)/i.test(m[0])) buf += ' ';
+      else if (m[0] === '<') buf += ' ';
+      else if (/^<\/?(span|a|strong|b|font|em|i|u|small|label)\b/i.test(m[0])) buf += ' ';
       else flush();
     }
     flush(); return out;

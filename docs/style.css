@@ -96,3 +96,4 @@ code{font-size:12px;background:#F0EFEB;padding:2px 6px;border-radius:6px;word-br
 .final{text-align:center;padding:72px 0 20px}.final h2{font-size:30px;letter-spacing:-.6px;margin:0 0 22px}
 @media(max-width:860px){.lhero{grid-template-columns:1fr;gap:36px}.steps4{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.hcta{padding:8px 12px;font-size:13px}.hcta span{display:none}nav button{padding:7px 10px}.top{flex-wrap:nowrap;overflow-x:auto}.mode{display:none}.steps4{grid-template-columns:1fr}.privacy{flex-direction:column;align-items:flex-start;padding:24px}.lh{margin-top:52px}}
+.samplebar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#fff;border:1px dashed var(--line);border-radius:16px;padding:14px 18px;margin-top:24px;font-size:14px;color:var(--ink2)}.sampleBtn{display:inline-flex;gap:6px;align-items:center}
