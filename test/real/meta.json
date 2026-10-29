@@ -1,0 +1,22 @@
+{
+ "baemin": {
+  "from": "배민 장보기·쇼핑 <noreply@woowahan.com>",
+  "subject": "[배민 장보기·쇼핑] 주문내역 안내메일입니다."
+ },
+ "coupang": {
+  "from": "쿠팡 <noreply@e.coupang.com>",
+  "subject": "[쿠팡] 홍*동님 주문하신 내역을 확인해주세요."
+ },
+ "megamart": {
+  "from": "메가마트 <shopping@megamart.com>",
+  "subject": "[메가마트몰] 주문 내역 안내"
+ },
+ "gmarket": {
+  "from": "G마켓 <mailmaster@corp.gmarket.co.kr>",
+  "subject": "홍*동님, 주문하신 상품이 10월 05일에 발송되었습니다."
+ },
+ "11st": {
+  "from": "11번가 <admin@11st.co.kr>",
+  "subject": "[11번가] 주문하신 상품의 발송준비가 완료되었습니다."
+ }
+}
