@@ -372,7 +372,7 @@
   // 검색 결과 HTML에서 첫 상품 사진 찾기(11번가·G마켓·컬리·다나와 등). 상품 CDN 주소만 인정, 없으면 og:image
   const PIMG = { '11번가': /cdn\.011st\.com\/11dims\/[^"'\s]*\/product\/|i\.011st\.com\/[^"'\s]*product/i, 'G마켓': /gdimg\.gmarket\.co\.kr\/[^"'\s]*(?:goods|item)/i, '컬리': /(?:img-cf|product-image)\.kurly\.com\//i, '다나와': /img\.danawa\.com\/prod_img\//i, '쿠팡': /thumbnail\d*\.coupangcdn\.com\//i, '네이버': /shopping-phinf\.pstatic\.net\//i };
   function findImg(site, html) {
-    const re = PIMG[site]; html = String(html || '');
+    const re = PIMG[site]; html = String(html || '').replace(/\\\//g, '/').replace(/\\u002F/gi, '/');
     if (re) { const all = html.match(/(?:https?:)?\/\/[^"'\s()<>\\]+?\.(?:jpe?g|png|webp|gif)(?:\?[^"'\s<>\\]*)?/gi) || []; const u = all.map(x => x.replace(/\\\//g, '/')).find(x => re.test(x)); if (u) return u.startsWith('//') ? 'https:' + u : u; }
     const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)/i) || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image/i);
     return og && !BAD_IMG.test(og[1]) ? (og[1].startsWith('//') ? 'https:' + og[1] : og[1]) : null;
