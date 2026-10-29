@@ -27,10 +27,14 @@
     const ref = myLast ? myLast.price : null, vsMine = now && ref ? Math.round((now.price - ref) / ref * 100) : null, vsYear = now && ya ? Math.round((now.price - ya.price) / ya.price * 100) : null;
     let v;
     if (now) {
-      if (now.price <= min * 1.02 || (ref && now.price <= ref * 0.95)) v = { k: 'buy', t: '지금 사세요' };
-      else if (nextDip && nextDip.d <= 21) v = { k: 'soon', t: `곧 떨어져요 D-${nextDip.d}` };
-      else if (avg && now.price > avg * 1.03) v = { k: 'wait', t: '기다리세요' };
-      else v = it.daysLeft <= 7 ? { k: 'buy', t: '지금 사세요' } : { k: 'ok', t: '보통 가격' };
+      // v0.14: 판단 근거가 충분할 때만 단정. 가격 기록 7일 미만이면 내 지난 가격과만 비교
+      const days = series.length, enough = days >= 7, rr = ref ? now.price / ref : 1, refOk = ref && rr > 0.4 && rr < 2.5; // 묶음 수 다르면 비교 안 함
+      if (enough && now.price <= min * 1.02 && (!avg || now.price < avg * 0.99) || refOk && now.price <= ref * 0.93) v = { k: 'buy', t: '지금 사세요' };
+      else if (enough && nextDip && nextDip.d <= 21) v = { k: 'soon', t: `곧 떨어져요 D-${nextDip.d}` };
+      else if (enough && avg && now.price > avg * 1.03 || refOk && now.price >= ref * 1.1 && it.daysLeft > 7) v = { k: 'wait', t: '기다리세요' };
+      else if (!enough && !refOk) v = { k: 'ok', t: `가격 모으는 중 ${days}/7일` };
+      else v = it.count >= 2 && it.daysLeft <= 7 ? { k: 'buy', t: '지금 사세요' } : { k: 'ok', t: '보통 가격' };
+      v.basis = enough ? `최근 ${days}일 기준` : refOk ? '내 지난 가격 기준' : '';
     } else v = it.count >= 2 && it.daysLeft <= 7 ? { k: 'due', t: '살 때 됐어요' } : it.count >= 2 && it.daysLeft < 9999 ? { k: 'ok', t: `D-${it.daysLeft} 후 필요` } : { k: 'ok', t: '가격 모으는 중' };
     const urg = it.count >= 2 ? Math.max(0, 30 - Math.max(0, it.daysLeft)) : 0;
     const score = ({ buy: 100, soon: 70, due: 60, wait: 40, ok: 10 })[v.k] + urg + Math.min(20, it.count) + (vsMine != null && vsMine < 0 ? -vsMine : 0);
@@ -91,7 +95,7 @@
     const nb = list.filter(p => p.verdict.k === 'buy').length, ns = list.filter(p => p.verdict.k === 'soon').length, nw = list.filter(p => p.verdict.k === 'wait').length;
     const cats = [...new Set(base.map(p => p.cat))];
     el.innerHTML = `${chips(d)}${W('photoBar')()}
-      <div class="phead"><h1>${W('plat')() ? `${W('logo')(W('plat')(), 28)} ${esc(W('plat')())}에서 ` : ''}지금 살 것</h1>${W('liveTag')()}
+      <div class="phead"><div class="ptl"><h1>${W('plat')() ? `${W('logo')(W('plat')(), 28)} ${esc(W('plat')())}에서 ` : ''}지금 살 것</h1>${W('liveTag')()}</div>
         <div class="vsum"><span style="--v:${VC.buy}"><b>${nb}</b>지금 사세요</span><span style="--v:${VC.soon}"><b>${ns}</b>곧 떨어져요</span><span style="--v:${VC.wait}"><b>${nw}</b>기다리세요</span></div></div>
       <div class="ctabs"><button class="ct ${catF ? '' : 'on'}" data-c=""><span>전체</span><i class="n">${base.length}</i></button>${cats.map(c => `<button class="ct ${catF === c ? 'on' : ''}" data-c="${esc(c)}"><span>${esc(c)}</span><i class="n">${base.filter(p => p.cat === c).length}</i></button>`).join('')}<span class="sp"></span><button class="ct" id="viewT">${view === 'rep' ? '1번 산 것도 보기' : '자주 산 것만'}</button></div>
       <div class="pgrid">${list.slice(0, 120).map(card).join('') || '<div class="empty">없어요</div>'}</div>`;
@@ -130,7 +134,7 @@
     const el = document.getElementById('pdBody');
     el.innerHTML = `<button class="back" id="pdBack">← 살 때</button>
       <div class="pdtop"><div class="pdimg">${photo(p, 260)}</div>
-        <div class="pdinfo"><span class="vb lg" style="--v:${VC[p.verdict.k]}">${esc(p.verdict.t)}</span><h1>${esc(p.name)}</h1>
+        <div class="pdinfo"><span class="vb lg" style="--v:${VC[p.verdict.k]}">${esc(p.verdict.t)}</span>${p.verdict.basis ? `<small class="vbasis">${esc(p.verdict.basis)}</small>` : ''}<h1>${esc(p.name)}</h1>
           <p class="say">${esc(p.say)}</p>
           <div class="pdk">
             <div><span>지금 최저</span><b>${p.now ? lg(p.now.src, 20) + fmt(p.now.price) : '–'}</b></div>

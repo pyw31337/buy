@@ -212,3 +212,5 @@ code{font-size:12px;background:#F0EFEB;padding:2px 6px;border-radius:6px;word-br
 .note b,.kpi b{font-size:32px!important;font-weight:900!important;letter-spacing:-.025em;line-height:1.05;margin-top:6px}.kpi b{color:#16161A}
 .note.up,.note.down,.note.warn,.note.hot{background:#fff}
 .blogo{width:32px;height:32px;border-radius:9px;display:block}
+
+/* v0.14 */.ptl{display:flex;flex-direction:column;align-items:flex-start;gap:8px}.ptl .tg{margin:0}.vbasis{margin-left:8px;color:var(--mut,#8a8f98);font-size:12px}
