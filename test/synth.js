@@ -18,6 +18,11 @@ module.exports = function synth(today = '2026-10-29') {
   SEA.forEach(([n, mall, p, ms]) => { for (let y = t0.getFullYear(); y <= t1.getFullYear(); y++) ms.forEach(m => { const d = new Date(y, m - 1, 3 + Math.floor(rnd() * 24)); if (d > t0 && d < t1 && rnd() < 0.85) out.push({ name: n, mall, price: Math.round(p * (0.9 + rnd() * 0.25) / 10) * 10, qty: 1, date: iso(d), source: 'synth' }); }); });
   for (let i = 0; i < 300; i++) { const d = new Date(+t0 + rnd() * (t1 - t0)); out.push({ name: ONE[i % ONE.length] + ' ' + (100 + i), mall: ['쿠팡', 'G마켓', '11번가', '네이버페이', 'SSG'][i % 5], price: Math.round((8000 + rnd() * 90000) / 100) * 100, qty: 1, date: iso(d), source: 'synth' }); }
   while (out.length < 1500) { const [n, mall, p] = P[Math.floor(rnd() * P.length)], d = new Date(+t0 + rnd() * (t1 - t0)); out.push({ name: n, mall, price: Math.round(p * infl(d) / 10) * 10, qty: 1, date: iso(d), source: 'synth' }); }
-  const prices = {}; ['삼다수 2L 12병', '코디 3겹 30m 30롤', '종근당 락토핏 골드 50포', '하기스 맥스드라이 4단계 76매', '로얄캐닌 인도어 4kg', 'CJ 햇반 210g 24개'].forEach((n, i) => { const base = P.find(x => x[0] === n)[2]; prices[n] = Array.from({ length: 30 }, (_, j) => ({ date: iso(new Date(+t1 - (29 - j) * 864e5)), price: Math.round(base * (1.02 + 0.05 * Math.sin(i + j / 4) + i * 0.02) / 10) * 10, mall: ['다나와', '에누리'][i % 2] })); });
+  const prices = {}; const SRC = ['다나와', '에누리', '쿠팡', '네이버'];
+  ['삼다수 2L 12병', '코디 3겹 30m 30롤', '종근당 락토핏 골드 50포', '하기스 맥스드라이 4단계 76매', '로얄캐닌 인도어 4kg', 'CJ 햇반 210g 24개', '돼지 삼겹살 구이용 1kg', '서울우유 1L 2개'].forEach((n, i) => { const base = P.find(x => x[0] === n)[2]; const arr = [];
+    for (let j = 0; j < 30; j++) SRC.forEach((src, si) => { if (si > 1 && j < 20) return; const title = src === '쿠팡' && n.startsWith('CJ 햇반') ? 'CJ 햇반 200g 24개' : src === '네이버' && n.startsWith('하기스') ? '하기스 맥스드라이 4단계 70매' : si > 1 ? n + ' 1팩' : undefined;
+      arr.push({ date: iso(new Date(+t1 - (29 - j) * 864e5)), price: Math.round(base * (1.04 + 0.05 * Math.sin(i + j / 4) + i * 0.025 + (si - 1.5) * 0.02) / 10) * 10, mall: si < 2 ? src + ' 최저' : src, src, title }); });
+    prices[n] = arr; });
+  out.push({ name: '삼다수 2L 12병', mall: '쿠팡', price: 7000, qty: 1, date: iso(new Date(+t1 - 40 * 864e5)), source: 'synth' }, { name: '삼다수 2L 12병', mall: '쿠팡', price: 7000, qty: 1, date: iso(new Date(+t1 - 39 * 864e5)), source: 'synth', status: 'cancel' });
   return { orders: out.sort((a, b) => a.date < b.date ? -1 : 1), prices };
 };

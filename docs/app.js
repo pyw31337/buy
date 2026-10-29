@@ -120,6 +120,7 @@
     $('#summary').innerHTML = summary(d.orders) + (catF ? `<button class="catf" id="catf">${esc(catF)} ×</button>` : '');
     if (cur === 'dash' && window.renderDash) window.renderDash();
     $('#list').innerHTML = rows.map(i => `<div class="lrow" data-k="${esc(i.key)}">${thumb(i, 44)}<div class="lmain"><b>${esc(i.name)}</b><div class="chips">${i.malls.map(mallChip).join('')}<span class="cnt">${i.count >= 2 ? i.count + '회 · ' + i.avgGap + '일 간격' : '1회 · ' + i.last}</span></div></div>${i.count >= 2 ? ring(i, 44) : `<span class="once">${i.prices.length ? fmt(i.prices[0].price) : ''}</span>`}</div>`).join('') || '<div class="empty">없어요</div>';
+    if ($('#failBtn')) $('#failBtn').onclick = () => { if (!extInfo) { toast('확장이 연결되어 있어야 해요'); return; } sampleMode = 'fail'; window.postMessage({ app: 'letsbuy-web', type: 'mails' }, location.origin); };
     if ($('#catf')) $('#catf').onclick = () => { catF = null; render(); };
     $$('#recs [data-k],#items [data-k]').forEach(el => el.onclick = () => { const it = all.find(i => i.key === el.dataset.k); if (it) open(it, d); });
   }
@@ -130,12 +131,14 @@
     const s = store.stats, ds = orders.map(o => o.date).filter(Boolean).sort(), pm = {};
     orders.forEach(o => pm[o.mall] = (pm[o.mall] || 0) + 1);
     const malls = Object.entries(pm).sort((a, b) => b[1] - a[1]).map(([m, n]) => `${mallChip(m)}<b>${n}</b>`).join(' ');
+    const K = s && s.kinds || {}, KL = [['cancel', '취소'], ['return', '반품·교환'], ['review', '리뷰 요청'], ['ad', '광고'], ['account', '계정 안내'], ['other', '기타 메일']];
+    const kinds = Object.keys(K).length ? `<div class="kinds">${KL.filter(([k]) => K[k]).map(([k, l]) => `<span class="kd ${k}">${l} <b>${K[k].toLocaleString()}</b></span>`).join('')}<small>실패로 세지 않음 · 취소·반품은 지출에서 뺌</small></div>` : '';
     const fails = s && s.failMall ? Object.entries(s.failMall).map(([m, n]) => `${m} ${n}`).join(' · ') : '';
     return `<div class="sum"><div class="sumrow">
       ${s ? `<div><span>확인한 메일</span><b>${(s.scanned || 0).toLocaleString()}통</b><small>${s.oldest || '?'} ~ ${s.newest || '?'} · 최근 ${s.years || 2}년</small></div>
       <div><span>주문 메일</span><b>${(s.read || 0).toLocaleString()}통</b><small>상품 찾음 ${(s.parsed || 0).toLocaleString()} · 못 읽음 ${((s.noItems || 0) + (s.readFail || 0)).toLocaleString()}</small></div>` : '<div><span>확인한 메일</span><b>—</b><small>확장 v0.8로 다시 수집하면 보여요</small></div>'}
       <div><span>구매 기록</span><b>${orders.length.toLocaleString()}건</b><small>${ds[0] || ''} ~ ${ds[ds.length - 1] || ''}</small></div></div>
-      <div class="summalls">${malls}</div>${fails ? `<p class="sumfail">상품을 못 찾은 주문 메일: ${esc(fails)} · '메일 샘플 내려받기'로 보내 주시면 고칠게요</p>` : ''}</div>`;
+      <div class="summalls">${malls}</div>${kinds}${fails ? `<div class="sumfail"><span>${svg('mail', 15)} 못 읽은 주문 메일 ${esc(fails)}</span><button class="btn sm" id="failBtn">${svg('download', 15)} 가려서 내려받기</button></div>` : ''}</div>`;
   }
   function chart(series, paid) {
     const W = 680, H = 200, P = 30, ps = series.map(s => s.price), mn = Math.min(...ps, paid || Infinity) * 0.97, mx = Math.max(...ps, paid || 0) * 1.03;
@@ -169,7 +172,7 @@
   }
   $('#sheet').onclick = e => { if (e.target.id === 'sheet') e.target.classList.remove('on'); };
   let cur = 'home';
-  window.LB_UI = { fmt, svg, thumb, esc, mallChip, data, store: () => store,
+  window.LB_UI = { toast: t => toast(t), saveStore: () => save(), fmt, svg, thumb, esc, mallChip, data, store: () => store,
     openKey: k => { const d = data(), it = LetsBuy.analyze(d.orders, d.today, d.aliases, { all: true }).find(i => i.key === k); if (it) open(it, d); },
     filterCat: c => { catF = c; filter = 'all'; $$('#filter button').forEach(b => b.classList.toggle('on', b.dataset.f === 'all')); go('items'); render(); } };
   function go(t) { cur = t; if (t === 'dash' && window.renderDash) setTimeout(window.renderDash); $$('#tabs button,.tab').forEach(e => e.classList.remove('on')); $('[data-tab=' + t + ']').classList.add('on'); $('#' + t).classList.add('on'); if (location.hash !== '#' + t) history.replaceState(null, '', '#' + t); scrollTo(0, 0); }
@@ -253,7 +256,21 @@
     .replace(/(받는\s*(분|사람)|수령인|주문자|구매자|이름|성명)(\s*[:：]?\s*(<[^>]*>\s*)*)[가-힣]{2,4}/g, '$1$3***')
     .replace(/(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|충청|전북|전남|전라|경북|경남|경상|제주)[가-힣]*\s[^<\n]{2,80}/g, '$1 (주소 가림)')
     .replace(/\(\d{5}\)|우편번호\s*[:：]?\s*\d{5}/g, '(*****)');
+  let sampleMode = 'all';
+  function exportFails(mails) {
+    const out = {}; let n = 0;
+    for (const m of mails) {
+      if (n >= 300) break;
+      const kind = m.kind || LetsBuy.mailKind(m.subject, ''), mall = LetsBuy.detectMall(m.subject + ' ' + String(m.html || '').replace(/<[^>]+>/g, ' ').slice(0, 3000), m.from);
+      if (mall === '기타' || !LetsBuy.FAILS.has(kind) || LetsBuy.parseMail(m).length) continue;
+      (out[mall] = out[mall] || []).push({ kind, subject: mask(m.subject), from: String(m.from || '').replace(/"?[가-힣]{2,4}"?\s*</, '<').replace(/[\w.+-]+@/, '***@'), date: m.date, html: mask(m.html) }); n++;
+    }
+    if (!n) { toast('못 읽은 주문 메일이 없어요'); return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ at: new Date().toISOString(), type: 'unparsed', count: n, malls: out }, null, 1)], { type: 'application/json' }));
+    a.download = 'letsbuy-unparsed-mails.json'; a.click(); toast(`못 읽은 메일 ${n}통 저장 · 개인정보는 가렸어요`);
+  }
   function exportSamples(mails) {
+    if (sampleMode === 'fail') { sampleMode = 'all'; return exportFails(mails); }
     if (!mails.length) { toast('보관된 메일이 없어요 · 메일 탭에서 L 아이콘을 다시 눌러 주세요'); return; }
     const by = {};
     for (const m of mails) { const k = LetsBuy.detectMall(m.subject + ' ' + (m.html || '').replace(/<[^>]+>/g, ' ').slice(0, 3000), m.from); (by[k] = by[k] || []).length < 5 && by[k].push({ subject: mask(m.subject), from: String(m.from || '').replace(/"?[가-힣]{2,4}"?\s*</, '<').replace(/[\w.+-]+@/, '***@'), date: m.date, html: mask(m.html) }); }

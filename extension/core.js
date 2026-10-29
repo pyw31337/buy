@@ -198,8 +198,10 @@
     const toks = mail.html ? htmlTokens(decodeQP(String(mail.html))) : null;
     const body = toks ? toks.map(t => t.t || '').filter(Boolean).join('\n') : (mail.body || '');
     const text = `${mail.subject || ''}\n${body}`;
-    if (/(취소|환불|반품|교환)/.test(mail.subject || '')) return [];
-    if (!ORDER_HINT.test(text)) return [];
+    const kind = mailKind(mail.subject, body);
+    if (kind === 'ad' || kind === 'review' || kind === 'account' || kind === 'other') return [];
+    const back = kind === 'cancel' || kind === 'return';
+    if (!back && !ORDER_HINT.test(text)) return [];
     const mall = detectMall(text, mail.from);
     const date = parseDate(mail.date || '', null) || parseDate(text, null);
     const orderNo = orderNoOf(body);
@@ -210,11 +212,63 @@
     if (!items.length && toks) items = labelItems(toks);
     if (!items.length) items = parseItems(body);
     if (items.length === 1 && items[0].price == null && toks) { const p = totalOf(toks.map(t => (t.t || '').trim())); if (p) items[0].price = p; }
-    return items.map(it => ({ ...it, mall, date, orderNo: it.orderNo || orderNo || undefined, source: 'mail' }));
+    return items.map(it => ({ ...it, mall, date, orderNo: it.orderNo || orderNo || undefined, source: 'mail', ...(back ? { status: kind } : {}) }));
   }
+  // 메일 종류: order(주문·결제) shipping(발송) delivered(배송완료) sub(정기배송) cancel return review ad account other
+  function mailKind(subject, body) {
+    const s = String(subject || ''), b = String(body || '').slice(0, 4000);
+    if (/(주문|결제)\s*(이\s*)?취소|취소\s*(완료|접수|요청|안내|처리)|환불|결제\s*취소/.test(s)) return 'cancel';
+    if (/반품|교환|회수/.test(s)) return 'return';
+    if (/리뷰|후기|상품평|평가|만족하셨|어떠셨/.test(s)) return 'review';
+    if (/비밀번호|로그인|인증\s*번호|회원\s*가입|개인정보|약관|휴면|본인\s*확인|이용\s*내역\s*안내|명세서/.test(s)) return 'account';
+    if (/정기\s*배송|정기\s*구독|구독\s*(결제|배송)/.test(s)) return 'sub';
+    if (/배송\s*(이\s*)?완료|도착\s*(했|완료|예정)|배달\s*완료/.test(s)) return 'delivered';
+    if (/발송|출고|배송\s*(시작|중|안내|준비)/.test(s)) return 'shipping';
+    if (ORDER_HINT.test(s) || /주문|결제|구매/.test(s)) return 'order';
+    if (/\(광고\)|\[광고\]|광고|쿠폰|혜택|이벤트|특가|세일|할인|초대|멤버십|와우|뉴스레터|적립|포인트|당첨|기획전|오픈|신상|한정|타임딜|추천|알림\s*신청|소식/.test(s)) return 'ad';
+    if (ORDER_HINT.test(b)) return 'order';
+    return 'other';
+  }
+  // 쇼핑 검색 결과에서 [{title, price}] 뽑기 (확장이 내 브라우저에서 받은 HTML)
+  const unesc = t => String(t).replace(/\\u([0-9a-f]{4})/gi, (_, h) => String.fromCharCode(parseInt(h, 16))).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+  function parseSearch(src, html) {
+    const h = String(html || ''), out = [];
+    if (src === '쿠팡') {
+      const parts = h.split(/<li[^>]+class="[^"]*(?:search-product|ProductUnit_productUnit)[^"]*"/).slice(1);
+      for (const p of parts) {
+        if (/ad-badge|AdMark|광고/.test(p.slice(0, 1500)) && out.length) continue;
+        const t = (p.match(/class="[^"]*(?:\bname\b|productName)[^"]*"[^>]*>([\s\S]*?)<\/div>/) || [])[1];
+        const v = (p.match(/class="[^"]*(?:price-value|priceValue|Price_priceValue)[^"]*"[^>]*>\s*([0-9,]+)/) || p.match(/<strong[^>]*>\s*([0-9]{1,3}(?:,[0-9]{3})+)\s*<\/strong>\s*원?/) || [])[1];
+        if (t && v) out.push({ title: unesc(t), price: +v.replace(/,/g, '') });
+      }
+    } else if (src === '네이버') {
+      const re = /"productTitle"\s*:\s*"((?:[^"\\]|\\.)*)"[\s\S]{0,2500}?"(?:lowPrice|price|mobileLowPrice)"\s*:\s*"?(\d{3,})/g; let m;
+      while ((m = re.exec(h)) && out.length < 20) out.push({ title: unesc(m[1]), price: +m[2] });
+      if (!out.length) { const re2 = /class="[^"]*product_title[^"]*"[^>]*>([\s\S]*?)<\/[a-z]+>[\s\S]{0,3000}?class="[^"]*price_num[^"]*"[^>]*>[\s\S]*?([0-9]{1,3}(?:,[0-9]{3})+)/g; while ((m = re2.exec(h)) && out.length < 20) out.push({ title: unesc(m[1]), price: +m[2].replace(/,/g, '') }); }
+    }
+    return out.filter(x => x.title && x.price >= 100).slice(0, 20);
+  }
+  // 내 품목과 가장 비슷한 검색 결과 중 최저가 (토큰 절반 이상 겹침)
+  function bestMatch(name, list) {
+    const a = tokens(name); if (!a.length) return null;
+    const ok = list.map(x => ({ ...x, s: sim(a, tokens(x.title)) })).filter(x => x.s >= 0.5);
+    if (!ok.length) return null;
+    const top = Math.max(...ok.map(x => x.s)); return ok.filter(x => x.s >= top - 0.25).sort((x, y) => x.price - y.price)[0];
+  }
+  const FAILS = new Set(['order', 'shipping', 'delivered', 'sub']);
   // 같은 주문이 주문완료·발송·배송완료 메일로 여러 번 → 하나로. 주문번호 같으면 같은 주문, 없으면 같은 쇼핑몰·이름 5일 이내
+  // 취소·반품: 같은 주문번호+이름, 없으면 같은 쇼핑몰·이름 45일 안의 가장 최근 구매를 지움
+  function backouts(orders) {
+    const back = orders.filter(o => o && o.status), buy = orders.filter(o => o && !o.status), gone = new Set();
+    for (const c of back) {
+      const n = clean(c.name || ''); const m = buy.filter(o => !gone.has(o) && clean(o.name || '') === n && (c.orderNo && o.orderNo ? o.orderNo === c.orderNo : o.mall === c.mall && day(c.date) - day(o.date) >= -1 && day(c.date) - day(o.date) <= 45)).sort((a, b) => a.date < b.date ? 1 : -1)[0];
+      if (m) gone.add(m);
+    }
+    return { kept: buy.filter(o => !gone.has(o)), removed: [...gone] };
+  }
   function dedupe(orders) {
     const out = [], byNo = new Map();
+    const bo = orders.some(o => o && o.status) ? backouts(orders) : null; if (bo) orders = bo.kept;
     for (const o of [...orders].filter(o => o && o.date && isProductName(clean(o.name))).sort((a, b) => a.date < b.date ? -1 : 1)) {
       const k = o.orderNo ? o.orderNo + '|' + o.name : null;
       if (k && byNo.has(k)) { const p = byNo.get(k); p.img = p.img || o.img; continue; }
@@ -305,6 +359,6 @@
     return out;
   }
 
-  const api = { parseEml, imgBlockItems, orderBlockItems, tableItems, labelItems, normName, decodeQP, isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
+  const api = { parseSearch, bestMatch, mailKind, FAILS, backouts, parseEml, imgBlockItems, orderBlockItems, tableItems, labelItems, normName, decodeQP, isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
   if (typeof module !== 'undefined') module.exports = api; else root.LetsBuy = api;
 })(typeof self !== 'undefined' ? self : this);

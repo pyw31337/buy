@@ -52,7 +52,10 @@
     const last12 = A.monthly.slice(12), avgM = Math.round(last12.reduce((s, m) => s + m.spend, 0) / 12);
     const kpi = [['wallet', '최근 12개월 지출', won(A.yoy.cur), pctTag(A.yoy.pct) + ' 작년 대비'], ['calendar', '한 달 평균', won(avgM), `주문 ${Math.round(A.yoy.curN / 12)}건/월`], ['cart', '한 번 주문할 때', won(A.basket.avg), `총 ${A.basket.n.toLocaleString()}번 주문`], ['package', '산 물건', A.total.items.toLocaleString() + '종', `${A.total.count.toLocaleString()}건 구매`]];
     const peak = A.peaks[0];
+    const TN = { up: '#E5484D', down: '#1F9D63', hot: '#FF5A36', warn: '#B7791F', '': '#16161A' };
     el.innerHTML = `
+      ${A.notes.length ? `<div class="notes">${A.notes.map(n => `<button class="note ${n.tone}" ${n.key ? `data-k="${esc(n.key)}"` : n.cat ? `data-cat="${esc(n.cat)}"` : ''}><span class="ni" style="color:${TN[n.tone]}">${svg(n.icon, 18)}</span><b style="color:${TN[n.tone]}">${esc(n.big)}</b><span>${esc(n.text)}</span></button>`).join('')}</div>` : ''}
+      ${(() => { const etc = A.items.filter(i => i.cat === '기타' && !st.cats[i.key]); return etc.length ? `<div class="aibar"><span>${svg('package', 16)} 분류 못 한 품목 <b>${etc.length}</b>개</span><button class="btn sm" id="aiCat">${svg('sparkles', 15)} 로컬 AI로 분류</button><button class="btn sm ghost" id="etcList">보기</button><small id="aiCatMsg">Ollama가 내 컴퓨터에 켜져 있어야 해요</small></div>` : ''; })()}
       <div class="kpis">${kpi.map(([ic, l, v, s]) => `<div class="kpi"><span class="ki">${svg(ic, 20)}</span><span class="kl">${l}</span><b>${v}</b><small>${s}</small></div>`).join('')}</div>
       <div class="dg">
         <section class="pn wide"><h3>${svg('chart', 18)} 월별 지출 <small>${peak ? `가장 많이 쓴 달 ${peak.m.replace('-', '.')} · ${won(peak.spend)}` : ''}</small></h3>${bars(A.monthly)}</section>
@@ -64,10 +67,26 @@
         <section class="pn wide"><h3>${svg('star', 18)} 자주 산 것</h3><div class="tops">${A.top.map(it => `<div class="tp" data-k="${esc(it.key)}">${thumb(it, 76)}<span class="badge">${it.count}회</span><b>${esc(it.name)}</b><small>${it.sub} · ${won(it.spend)}</small></div>`).join('')}</div></section>
         <section class="pn wide"><h3>${svg('cycle', 18)} 반복 구매 타임라인 <small>점 하나 = 한 번 구매</small></h3>${cycles(A.items, A.today)}</section>
         <section class="pn wide"><h3>${svg('tag', 18)} 내가 낸 가격 변화 <small>처음 산 가격 → 최근 가격 (1개 기준)</small></h3>${A.changes.length ? `<div class="chg">${A.changes.slice(0, 10).map(c => `<div class="cg" data-k="${esc(c.key)}">${thumb(c, 40)}<span class="cn">${esc(c.name)}<small>${c.from.slice(2).replace(/-/g, '.')} → ${c.to.slice(2).replace(/-/g, '.')}</small></span><span class="pp">${W('fmt')(c.p0)} → <b>${W('fmt')(c.p1)}</b></span>${pctTag(c.pct)}${c.shrink ? `<span class="shr">용량 ${c.shrink}%↓</span>` : ''}</div>`).join('')}</div>` : '<p class="muted">같은 물건을 가격과 함께 두 번 이상 사면 보여요</p>'}</section>
-        <section class="pn wide"><h3>${svg('search', 18)} 작년 이맘때 vs 지금 시장가 <small>확장이 내 브라우저에서 매일 모은 최저가</small></h3>${A.market.length ? `<div class="chg">${A.market.slice(0, 10).map(c => `<div class="cg" data-k="${esc(c.key)}">${thumb(c, 40)}<span class="cn">${esc(c.name)}<small>${c.paidDate.slice(2).replace(/-/g, '.')}에 샀음 · 지금 ${esc(c.nowSrc || '')}</small></span><span class="pp">${W('fmt')(c.paid)} → <b>${W('fmt')(c.now)}</b></span>${pctTag(c.pct)}</div>`).join('')}</div>` : '<p class="muted">확장이 가격을 모으기 시작하면 보여요 (매일 1회, 재구매 품목)</p>'}${A.shrink.length ? `<p class="shrnote">${svg('alert', 15)} 용량이 줄었는데 값은 그대로이거나 오른 품목 ${A.shrink.length}개</p>` : ''}</section>
+        <section class="pn wide"><h3>${svg('search', 18)} 작년 이맘때 vs 지금 최저가 <small>다나와·에누리·쿠팡·네이버 · 확장이 내 브라우저에서 하루 한 번</small></h3>${A.market.length ? `<div class="mkt">${A.market.slice(0, 12).map(c => `<div class="mk" data-k="${esc(c.key)}">${thumb(c, 52)}<div class="mkm"><b>${esc(c.name)}</b><small>${c.paidDate.slice(2).replace(/-/g, '.')} ${W('fmt')(c.paid)}${c.gap ? ` · ${c.gap}일마다` : ''}</small><div class="srcs">${c.sources.map((x, i) => `<span class="src${i ? '' : ' min'}" title="${esc(x.title || '')}">${esc(x.src)} ${W('fmt')(x.price)}</span>`).join('')}</div></div><div class="mkr">${pctTag(c.pct)}${c.unitPct != null && c.unitLabel ? `<small>${c.unitLabel} ${c.unitPct > 0 ? '+' : ''}${c.unitPct}%</small>` : ''}${c.shrink ? `<span class="shr">용량 ${c.shrink}%↓</span>` : ''}</div></div>`).join('')}</div>` : '<p class="muted">확장이 가격을 모으기 시작하면 보여요 (매일 1회, 자주 사는 품목 60개)</p>'}${A.shrink.length || A.market.some(m => m.shrink) ? `<p class="shrnote">${svg('alert', 15)} 용량이 줄어든 품목 ${A.shrink.length + A.market.filter(m => m.shrink).length}개</p>` : ''}</section>
       </div>`;
     el.querySelectorAll('[data-k]').forEach(n => n.onclick = () => W('openKey')(n.dataset.k));
+    const ai = document.getElementById('aiCat'); if (ai) ai.onclick = () => aiCats(A.items.filter(i => i.cat === '기타' && !st.cats[i.key]));
+    const el2 = document.getElementById('etcList'); if (el2) el2.onclick = () => W('filterCat')('기타');
     el.querySelectorAll('[data-cat]').forEach(n => n.onclick = () => W('filterCat')(n.dataset.cat));
+  }
+  // 로컬 AI(Ollama): 기타 품목만 30개씩 보내 분류. 결과는 내 브라우저에 저장, 직접 바꾼 분류가 우선
+  async function aiCats(list) {
+    const msg = document.getElementById('aiCatMsg'), st = W('store')(), model = (document.getElementById('aiModel') || {}).value || 'qwen2.5:3b';
+    const opts = [...new Set(I.DICT.map(x => x[0] + '/' + x[1]))]; let n = 0;
+    try {
+      for (let i = 0; i < list.length; i += 30) {
+        const part = list.slice(i, i + 30); msg.textContent = `분류 중 ${i}/${list.length}`;
+        const r = await fetch('http://localhost:11434/api/chat', { method: 'POST', body: JSON.stringify({ model, stream: false, format: 'json', messages: [{ role: 'user', content: `한국 쇼핑몰 상품명을 아래 분류 중 하나로 나눠라. 분류: ${opts.join(', ')}. 맞는 게 없으면 "기타/기타". JSON {"상품명":"대분류/소분류"} 만 답하라.\n` + part.map(x => x.name).join('\n') }] }) });
+        const j = JSON.parse((await r.json()).message.content);
+        for (const it of part) { const v = j[it.name]; if (typeof v === 'string' && opts.includes(v)) { st.cats[it.key] = v; n++; } }
+      }
+      W('saveStore')(); render(); W('toast')(`AI가 ${n}개 분류했어요`);
+    } catch (e) { msg.textContent = 'Ollama에 연결 못 함 · 고급 설정에서 켜는 법을 확인해 주세요'; }
   }
   window.renderDash = render;
 })();

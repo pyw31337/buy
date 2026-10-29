@@ -7,6 +7,6 @@ module.exports = [
  { mall:'11번가', expect:['페리오 46cm 치약 100g 6개'], mail:{ from:'11번가 <noreply@11st.co.kr>', subject:'[11번가] 주문하신 상품 결제가 완료되었습니다', date:'2025-02-01', body:`결제완료\n주문번호 20250201000123\n상품명 | 수량 | 금액\n페리오 46cm 치약 100g 6개 | 1 | 9,900원\n최종 결제금액 9,900원` } },
  { mall:'SSG', expect:['삼다수 2L 12병'], mail:{ from:'SSG.COM <ssg@ssg.com>', subject:'[SSG.COM] 주문 접수 안내', date:'2026-01-10', body:`주문해 주셔서 감사합니다.\n주문하신 상품\n삼다수 2L 12병\n9,600원 / 1개\n쓱배송 1월 11일 도착` } },
  { mall:'마켓컬리', expect:['[KF365] 1+등급 무항생제 대란 30구'], mail:{ from:'컬리 <noreply@kurly.com>', subject:'[컬리] 주문이 접수되었어요', date:'2026-02-03', body:`샛별배송 주문 접수 완료\n상품명 : [KF365] 1+등급 무항생제 대란 30구\n상품금액 10,900원\n수량 1` } , loose:true},
- { mall:'취소메일', expect:[], mail:{ from:'쿠팡', subject:'[쿠팡] 주문 취소 완료 안내', date:'2025-03-03', body:'주문 상품\n깨끗한나라 화장지 30롤\n19,900원 / 1개' } },
+ { mall:'쿠팡', expect:['깨끗한나라 화장지 30롤'], mail:{ from:'쿠팡', subject:'[쿠팡] 주문 취소 완료 안내', date:'2025-03-03', body:'주문 상품\n깨끗한나라 화장지 30롤\n19,900원 / 1개' } },
  { mall:'광고메일', expect:[], mail:{ from:'쿠팡', subject:'오늘만! 생활용품 최대 50% 할인', date:'2025-03-03', body:'지금 바로 확인하세요\n화장지 특가 9,900원' } },
 ];

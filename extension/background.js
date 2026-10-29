@@ -63,25 +63,58 @@ const SOURCES = [
 ];
 async function fetchText(u) { const c = new AbortController(); const t = setTimeout(() => c.abort(), 15000); try { const r = await fetch(u, { signal: c.signal }); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.text(); } finally { clearTimeout(t); } }
 
+// 쿠팡·네이버쇼핑: 내 브라우저에서 검색 결과를 읽음. 먼저 조용히 요청, 막히면 비활성 탭으로 열어 읽고 닫음
+const SHOPS = [
+  { name: '쿠팡', url: q => 'https://www.coupang.com/np/search?q=' + q + '&lb=1' },
+  { name: '네이버', url: q => 'https://search.shopping.naver.com/search/all?query=' + q + '&lb=1' },
+];
+const waiters = {};
+chrome.runtime.onMessage.addListener((m, s) => { if (m && m.type === 'searchHtml' && s.tab && waiters[s.tab.id]) { waiters[s.tab.id](m.html); delete waiters[s.tab.id]; } });
+async function viaTab(url) {
+  const tab = await chrome.tabs.create({ url, active: false });
+  try { return await new Promise((res, rej) => { waiters[tab.id] = res; setTimeout(() => rej(new Error('시간 초과')), 20000); }); }
+  finally { delete waiters[tab.id]; chrome.tabs.remove(tab.id).catch(() => {}); }
+}
+const blocked = h => /Access Denied|captcha|보안 확인|비정상적인 접근|자동입력 방지/i.test(h.slice(0, 5000));
+async function shopSearch(shop, q, state) {
+  if (state.off) throw new Error('오늘은 쉼');
+  let html = '';
+  if (!state.tab) { try { const r = await fetch(shop.url(q), { credentials: 'include' }); html = r.ok ? await r.text() : ''; } catch { html = ''; } }
+  let list = html && !blocked(html) ? LetsBuy.parseSearch(shop.name, html) : [];
+  if (!list.length) { state.tab = true; if (state.tabs++ >= 25) { state.off = true; throw new Error('탭 한도'); } html = await viaTab(shop.url(q)); if (blocked(html)) { state.off = true; throw new Error('차단'); } list = LetsBuy.parseSearch(shop.name, html); }
+  return list;
+}
+
 async function collectPrices() {
   const { orders = [], prices = {}, aliases = {} } = await chrome.storage.local.get(['orders', 'prices', 'aliases']);
-  const items = LetsBuy.analyze(orders, todayStr(), aliases), today = todayStr(); let ok = 0; const fails = {};
+  const today = todayStr(), items = LetsBuy.analyze(orders, today, aliases).sort((a, b) => b.count - a.count).slice(0, 60); let ok = 0; const fails = {}, st = {};
+  SHOPS.forEach(s => st[s.name] = { tab: false, tabs: 0, off: false });
   for (const it of items) {
     const q = encodeURIComponent(LetsBuy.tokens(it.name).slice(0, 5).join(' ') || it.name);
+    const arr = (prices[it.key] || []).slice(), have = new Set(arr.filter(p => p.date === today).map(p => p.src || p.mall));
     for (const s of SOURCES) {
+      if (have.has(s.name) || have.has(s.name + ' 최저')) continue;
       try {
         const v = s.parse(await fetchText(s.url(q)));
         const price = v ? +String(v).replace(/,/g, '') : 0;
         if (!price || price < 100) throw new Error('가격을 못 찾음');
-        const arr = (prices[it.key] || []).filter(p => p.date !== today);
-        arr.push({ date: today, price, mall: s.name + ' 최저' });
-        prices[it.key] = arr.slice(-730); ok++; break;
+        arr.push({ date: today, price, mall: s.name + ' 최저', src: s.name }); ok++;
       } catch (e) { fails[s.name] = (fails[s.name] || 0) + 1; }
+      await new Promise(r => setTimeout(r, 1200));
     }
-    await new Promise(r => setTimeout(r, 1500));
+    for (const s of SHOPS) {
+      if (have.has(s.name)) continue;
+      try {
+        const m = LetsBuy.bestMatch(it.name, await shopSearch(s, q, st[s.name]));
+        if (!m) throw new Error('비슷한 상품 없음');
+        arr.push({ date: today, price: m.price, mall: s.name, src: s.name, title: m.title.slice(0, 120) }); ok++;
+      } catch (e) { fails[s.name] = (fails[s.name] || 0) + 1; }
+      await new Promise(r => setTimeout(r, 2500 + Math.random() * 1500));
+    }
+    prices[it.key] = arr.slice(-1500);
   }
   await chrome.storage.local.set({ prices, pricedAt: today });
-  diag('prices', ok > 0 || !items.length, `ok=${ok}/${items.length} fails=${JSON.stringify(fails)}`);
+  diag('prices', ok > 0 || !items.length, `ok=${ok}/${items.length} fails=${JSON.stringify(fails)} shops=${JSON.stringify(st)}`);
   return { ok, total: items.length, fails };
 }
 

@@ -40,7 +40,7 @@ async function readBody(sn) {
 }
 async function strategyApi() {
   const since = Date.now() - YEARS * 365 * 864e5, orders = [], seen = new Set(), cand = [];
-  STATS = { scanned: 0, candidates: 0, read: 0, parsed: 0, noItems: 0, readFail: 0, oldest: null, newest: null, years: YEARS, mode: '', perMall: {}, failMall: {} };
+  STATS = { scanned: 0, candidates: 0, read: 0, parsed: 0, noItems: 0, readFail: 0, oldest: null, newest: null, years: YEARS, mode: '', perMall: {}, failMall: {}, kinds: {}, backs: 0 };
   let variant = null;
   for (let v = 0; v < LIST_VARIANTS.length && variant === null; v++) {
     try { const [p, prm] = LIST_VARIANTS[v]('', 1); const j = await call(p, prm, 1); if (pickList(j).length) variant = v; else diag('api-list', false, `variant${v} empty keys=${Object.keys(j || {}).join(',')}`); }
@@ -79,8 +79,9 @@ async function strategyApi() {
         const mail = { id: 'n' + c.sn, subject: mi.subject || c.subject, from: c.from || JSON.stringify(mi.from || ''), date: c.t ? new Date(c.t + 9 * 3600e3).toISOString().slice(0, 10) : '', html };
         const r = LetsBuy.parseMail(mail); const mall = LetsBuy.detectMall(mail.subject, mail.from);
         RAW.push(mail); orders.push(...r);
-        if (r.length) { STATS.parsed++; STATS.perMall[r[0].mall] = (STATS.perMall[r[0].mall] || 0) + r.length; }
-        else if (mall !== '기타' && /주문|결제|구매|발송/.test(mail.subject) && !/취소|반품|환불|교환/.test(mail.subject)) { STATS.noItems++; STATS.failMall[mall] = (STATS.failMall[mall] || 0) + 1; }
+        const kind = LetsBuy.mailKind(mail.subject, ''); STATS.kinds[kind] = (STATS.kinds[kind] || 0) + 1; mail.kind = kind;
+        if (r.length) { STATS.parsed++; if (r[0].status) STATS.backs++; STATS.perMall[r[0].mall] = (STATS.perMall[r[0].mall] || 0) + r.length; }
+        else if (mall !== '기타' && LetsBuy.FAILS.has(kind)) { STATS.noItems++; mail.fail = 1; STATS.failMall[mall] = (STATS.failMall[mall] || 0) + 1; }
       } catch (e) { if (++STATS.readFail <= 5) diag('api-read', false, e.message); }
     }));
     if (i % 15 === 0) say(`렛츠바이 · 주문 메일 ${Math.min(i + 3, cand.length)}/${cand.length}통 읽음 · 상품 ${orders.length}개`);
