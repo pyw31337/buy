@@ -246,7 +246,29 @@
     const run = p && p.running;
     return `<div class="phbar"><span class="phl">${svg('image', 16)} 사진 <b>${have}/${items.length}</b></span><span class="phm"><i style="width:${run ? Math.round(p.done / (p.total || 1) * 100) : pc}%"></i></span>${run ? `<small>찾는 중 ${p.done}/${p.total}</small>` : `<button class="btn sm" id="fillImg">사진 채우기</button>`}</div>`;
   }
-  function bindPhoto(el) { const b = el && el.querySelector('#fillImg'); if (b) b.onclick = () => { if (!extInfo) { toast('확장(v0.12)이 연결되어 있어야 해요'); return; } thumbProg = { running: true, done: 0, total: 1 }; refreshAll(); window.postMessage({ app: 'letsbuy-web', type: 'fillImages', force: true }, location.origin); }; }
+  function startPhotoFill() {
+    thumbProg = { running: true, done: 0, total: 1 };
+    refreshAll();
+    window.postMessage({ app: 'letsbuy-web', type: 'fillImages', force: true }, location.origin);
+  }
+  function bindPhoto(el) {
+    const b = el && el.querySelector('#fillImg');
+    if (!b) return;
+    b.onclick = () => {
+      if (extInfo) return startPhotoFill();
+      // 설치되어 있어도 content script의 최초 hello가 페이지보다 먼저 오면 놓칠 수 있다.
+      // 여기서 다시 연결을 요청해, 사용자가 두 번 눌러야 하는 상황을 없앤다.
+      b.disabled = true;
+      b.textContent = '확장 연결 확인 중…';
+      requestExtension();
+      setTimeout(() => {
+        if (extInfo) return startPhotoFill();
+        b.disabled = false;
+        b.textContent = '사진 채우기';
+        toast('확장 연결을 찾지 못했어요. 확장 관리 화면에서 렛츠바이 수집기가 켜져 있는지 확인해 주세요.');
+      }, 700);
+    };
+  }
   window.LB_UI = { aiOK: () => aiOK, refreshAll: () => refreshAll(), pastTag, liveTag, photoBar, bindPhoto, imgOf, sharedFill, toast: t => toast(t), saveStore: () => save(), fmt, svg, thumb, esc, mallChip, data, raw, logo, platOf, mallName, ollama, OLLAMA_HELP, store: () => store, isDemo: () => demo,
     plat: () => plat, setPlat: p => { plat = plat === p ? null : p; render(); if (window.renderProd) window.renderProd(); if (cur === 'dash' && window.renderDash) window.renderDash(); },
     go: t => go(t), rerender: () => render(),
@@ -300,17 +322,29 @@
   go(store.orders.length && location.hash !== '#home' ? (['prod', 'items', 'dash'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'prod') : 'home');
   $('#demo').onclick = () => { demo = true; render(); go('prod'); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
-  let extInfo = null, extLog = [];
+  let extInfo = null, extLog = [], extProbe = null;
+  function requestExtension() { window.postMessage({ app: 'letsbuy-web', type: 'pull' }, location.origin); }
+  function markExtensionConnected(version) {
+    const firstConnection = !extInfo;
+    extInfo = { version: version || extInfo?.version || '?' };
+    $('#extState').textContent = version ? `확장 v${version} 연결됨` : '확장 연결됨';
+    $('#extState').classList.add('on');
+    if (extProbe) { clearInterval(extProbe); extProbe = null; }
+    if (firstConnection) setTimeout(probeAI, 300);
+  }
   window.addEventListener('message', e => {
     if (e.source !== window || e.origin !== location.origin || !e.data || e.data.app !== 'letsbuy-ext') return;
     if (e.data.type === 'diag') extLog = e.data.diag;
-    if (e.data.type === 'hello') { extInfo = { version: e.data.version }; setTimeout(probeAI, 300); $('#extState').textContent = '확장 연결됨'; $('#extState').classList.add('on'); window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*'); }
+    if (e.data.type === 'hello') markExtensionConnected(e.data.version);
     if (e.data.type === 'thumbProg') { thumbProg = e.data.prog; const el = document.querySelector('.phbar'); if (el) el.outerHTML = photoBar(); bindPhoto(document); }
-    if (e.data.type === 'data') { if (e.data.mailStats) store.mailStats = e.data.mailStats; if (e.data.pricedTs) store.pricedTs = e.data.pricedTs; THUMB = {}; for (const [k, v] of Object.entries(e.data.thumbs || {})) THUMB[k] = v.d || v.u; if (e.data.thumbProg) thumbProg = e.data.thumbProg; if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders, e.data.prices, true); $('#extState').textContent = `확장 v${e.data.version} · 주문 ${e.data.orders.length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
+    if (e.data.type === 'data') { if (!extInfo) markExtensionConnected(e.data.version); if (e.data.mailStats) store.mailStats = e.data.mailStats; if (e.data.pricedTs) store.pricedTs = e.data.pricedTs; THUMB = {}; for (const [k, v] of Object.entries(e.data.thumbs || {})) THUMB[k] = v.d || v.u; if (e.data.thumbProg) thumbProg = e.data.thumbProg; if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders || [], e.data.prices || {}, true); $('#extState').textContent = `확장 v${e.data.version || extInfo.version} · 주문 ${(e.data.orders || []).length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
     if (e.data.type === 'data') setTimeout(sharedFill, 300);
   });
+  // 확장이 먼저 로드돼 hello를 이미 보냈더라도, pull 응답(data)으로 연결을 판정한다.
+  requestExtension();
+  extProbe = setInterval(() => { if (!extInfo) requestExtension(); }, 1000);
   setTimeout(sharedFill, 1200);
-  $('#pullExt').onclick = () => window.postMessage({ app: 'letsbuy-web', type: 'pull' }, '*');
+  $('#pullExt').onclick = requestExtension;
   setTimeout(() => { if (!$('#extState').classList.contains('on')) $('#extState').textContent = '확장 없음'; }, 1500);
   function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('on'), 2400); }
 
