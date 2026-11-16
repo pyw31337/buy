@@ -34,7 +34,7 @@
     </section>
     <h2 class="lh">이렇게 동작해요</h2>
     <div class="steps4">
-      <div><span class="sic" data-i="download"></span><b>설치</b><p>ZIP 압축을 풀고 확장 관리 화면에서 폴더 선택</p></div>
+      <div><span class="sic" data-i="download"></span><b>설치</b><p>ZIP 압축을 풀고 manifest.json 있는 폴더 선택</p></div>
       <div><span class="sic" data-i="mail"></span><b>클릭 한 번</b><p>네이버·Gmail 탭에서 <span class="logo sm">L</span> 아이콘 클릭</p></div>
       <div><span class="sic" data-i="cycle"></span><b>자동 분석</b><p>재구매 품목과 주기, 시즌을 계산</p></div>
       <div><span class="sic" data-i="bell"></span><b>살 때 알림</b><p>떨어질 즈음 최저가와 함께</p></div>
@@ -48,7 +48,7 @@
     <details class="manual" style="margin:32px 0;border:1px solid var(--line);border-radius:16px;padding:16px 20px;background:#fff">
       <summary style="cursor:pointer;font-weight:700;font-size:16px">사용 방법 더 보기</summary>
       <div style="margin-top:12px;font-size:14px;line-height:1.6;color:var(--ink2)">
-        <p id="install"><b>1. 확장 설치 또는 업데이트 (추천)</b><br>① 위의 <b>확장 다운로드</b> ZIP을 받습니다. ② ZIP을 압축 해제합니다. ③ 주소창에 <b>chrome://extensions</b>를 입력하고 <b>개발자 모드</b>를 켭니다. ④ <b>압축해제된 확장 프로그램을 로드합니다</b>를 눌러, 압축을 푼 폴더 안의 <b>extension</b> 폴더를 선택합니다.<br><small>ZIP 파일 자체를 확장 관리 화면에 끌어놓으면 설치되지 않습니다. 이미 같은 폴더를 설치했다면 새 ZIP으로 덮어쓴 뒤 해당 카드의 ↻ 새로고침만 누르세요.</small></p>
+        <p id="install"><b>1. 확장 설치 또는 업데이트 (추천)</b><br>① 위의 <b>확장 다운로드</b> ZIP을 받습니다. ② ZIP을 압축 해제합니다. ③ 주소창에 <b>chrome://extensions</b>를 입력하고 <b>개발자 모드</b>를 켭니다. ④ <b>압축해제된 확장 프로그램을 로드합니다</b>를 누른 뒤, 압축을 푼 폴더 중 <b>manifest.json 파일이 바로 보이는 폴더</b>를 선택합니다.<br><small>ZIP 파일 자체를 확장 관리 화면에 끌어놓으면 설치되지 않습니다. GitHub 소스 전체를 받은 경우에는 그 안의 <b>extension</b> 폴더를 선택하세요. 이미 같은 폴더를 설치했다면 새 파일로 덮어쓴 뒤 해당 카드의 ↻ 새로고침만 누르세요.</small></p>
         <p><b>2. 확장으로 자동 수집</b><br>설치 후 이 페이지를 한 번 새로고침하고, 네이버·Gmail 메일 탭에서 L 아이콘을 누르면 주문 메일을 읽어 분석합니다. 위의 <b>연결 상태 자가진단</b>에서 버전과 연결을 바로 확인할 수 있습니다.</p>
         <p><b>3. .eml 파일로 직접 추가</b><br>메일함에서 주문 메일을 .eml로 저장한 뒤, 이 페이지에 끌어다 놓거나 클릭해서 선택하세요. 이 브라우저 안에서만 읽습니다.</p>
         <p><b>4. 데이터 백업 · 복원</b><br>페이지 맨 아래 <b>고급</b> 메뉴에서<br>
