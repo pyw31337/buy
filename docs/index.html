@@ -5,7 +5,7 @@
 <link rel="icon" href="favicon.ico?v=0142" sizes="any"><link rel="icon" href="brand/favicon-32.png?v=0142" sizes="32x32"><link rel="apple-touch-icon" href="brand/apple-touch-icon.png?v=0142"><link rel="manifest" href="manifest.webmanifest?v=0142"><meta name="theme-color" content="#0A1C38">
 <meta property="og:type" content="website"><meta property="og:title" content="렛츠바이 Lets Buy"><meta property="og:description" content="자주 사는 것, 지금 사야 할지 알려드려요"><meta property="og:image" content="https://pyw31337.github.io/buy/og-image.png?v=0143"><meta property="og:url" content="https://pyw31337.github.io/buy/"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="https://pyw31337.github.io/buy/og-image.png?v=0143">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
-<link rel="stylesheet" href="style.css?v=21"></head>
+<link rel="stylesheet" href="style.css?v=22"></head>
 <body>
 <header class="top"><div class="tin">
   <a class="brand" href="#home" data-go="home"><img class="blogo" src="brand/favicon-192.png?v=0142" width="32" height="32" alt=""><b>렛츠바이</b></a>
@@ -34,7 +34,7 @@
     </section>
     <h2 class="lh">이렇게 동작해요</h2>
     <div class="steps4">
-      <div><span class="sic" data-i="download"></span><b>설치</b><p>zip 받아 확장 관리 화면에 끌어놓기</p></div>
+      <div><span class="sic" data-i="download"></span><b>설치</b><p>ZIP 압축을 풀고 확장 관리 화면에서 폴더 선택</p></div>
       <div><span class="sic" data-i="mail"></span><b>클릭 한 번</b><p>네이버·Gmail 탭에서 <span class="logo sm">L</span> 아이콘 클릭</p></div>
       <div><span class="sic" data-i="cycle"></span><b>자동 분석</b><p>재구매 품목과 주기, 시즌을 계산</p></div>
       <div><span class="sic" data-i="bell"></span><b>살 때 알림</b><p>떨어질 즈음 최저가와 함께</p></div>
@@ -48,13 +48,14 @@
     <details class="manual" style="margin:32px 0;border:1px solid var(--line);border-radius:16px;padding:16px 20px;background:#fff">
       <summary style="cursor:pointer;font-weight:700;font-size:16px">사용 방법 더 보기</summary>
       <div style="margin-top:12px;font-size:14px;line-height:1.6;color:var(--ink2)">
-        <p><b>1. 확장으로 자동 수집 (추천)</b><br>확장 설치 후 네이버·Gmail 메일 탭에서 L 아이콘을 한 번 누르면 주문 메일을 읽어 분석합니다.</p>
-        <p><b>2. .eml 파일로 직접 추가</b><br>메일함에서 주문 메일을 .eml로 저장한 뒤, 이 페이지에 끌어다 놓거나 클릭해서 선택하세요. 이 브라우저 안에서만 읽습니다.</p>
-        <p><b>3. 데이터 백업 · 복원</b><br>페이지 맨 아래 <b>고급</b> 메뉴에서<br>
+        <p id="install"><b>1. 확장 설치 또는 업데이트 (추천)</b><br>① 위의 <b>확장 다운로드</b> ZIP을 받습니다. ② ZIP을 압축 해제합니다. ③ 주소창에 <b>chrome://extensions</b>를 입력하고 <b>개발자 모드</b>를 켭니다. ④ <b>압축해제된 확장 프로그램을 로드합니다</b>를 눌러, 압축을 푼 폴더 안의 <b>extension</b> 폴더를 선택합니다.<br><small>ZIP 파일 자체를 확장 관리 화면에 끌어놓으면 설치되지 않습니다. 이미 같은 폴더를 설치했다면 새 ZIP으로 덮어쓴 뒤 해당 카드의 ↻ 새로고침만 누르세요.</small></p>
+        <p><b>2. 확장으로 자동 수집</b><br>설치 후 이 페이지를 한 번 새로고침하고, 네이버·Gmail 메일 탭에서 L 아이콘을 누르면 주문 메일을 읽어 분석합니다. 위의 <b>연결 상태 자가진단</b>에서 버전과 연결을 바로 확인할 수 있습니다.</p>
+        <p><b>3. .eml 파일로 직접 추가</b><br>메일함에서 주문 메일을 .eml로 저장한 뒤, 이 페이지에 끌어다 놓거나 클릭해서 선택하세요. 이 브라우저 안에서만 읽습니다.</p>
+        <p><b>4. 데이터 백업 · 복원</b><br>페이지 맨 아래 <b>고급</b> 메뉴에서<br>
         · 익스포트(JSON): 현재 분석 데이터를 파일로 저장<br>
         · 임포트: 저장한 JSON을 불러오기 (덮어쓰기 또는 병합)<br>
         · 구글 드라이브: 다른 기기에서 같은 계정으로 이어가기</p>
-        <p><b>4. 썸네일</b><br>이미지는 공유 캐시에서 자동으로 채워집니다. JSON에는 포함되지 않아도 불러온 뒤 빠르게 표시됩니다.</p>
+        <p><b>5. 썸네일</b><br><b>사진 채우기</b>를 눌렀을 때만 제품 사진을 찾습니다. 사진 공유 캐시는 기본으로 꺼져 있으며, 고급 메뉴에서 원할 때만 켤 수 있습니다.</p>
         <p style="margin-top:12px"><small>데이터는 기본적으로 이 브라우저에만 저장됩니다. 클라우드 기능은 원할 때만 사용하세요.</small></p>
       </div>
     </details>
@@ -98,5 +99,5 @@
 <div id="toast" class="toast"></div>
 <div id="sheet" class="sheet"><div class="sheet-body" id="sheetBody"></div></div>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="core.js?v=21"></script><script src="insights.js?v=21"></script><script src="sample.js?v=20"></script><script src="app.js?v=22"></script><script src="dash.js?v=21"></script><script src="products.js?v=21"></script>
+<script src="core.js?v=21"></script><script src="insights.js?v=21"></script><script src="sample.js?v=20"></script><script src="app.js?v=23"></script><script src="dash.js?v=21"></script><script src="products.js?v=21"></script>
 </body></html>

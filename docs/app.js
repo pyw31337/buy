@@ -267,6 +267,7 @@
     return `<div class="phbar"><span class="phl">${svg('image', 16)} 사진 <b>${have}/${items.length}</b></span><span class="phm"><i style="width:${run ? Math.round(p.done / (p.total || 1) * 100) : pc}%"></i></span>${run ? `<small>찾는 중 ${p.done}/${p.total}</small>` : `<button class="btn sm" id="fillImg">사진 채우기</button>`}</div>`;
   }
   function startPhotoFill() {
+    if (!extensionIsCurrent()) return toast(extInfo ? `확장 v${extInfo.version}은(는) 오래됐어요. v${REQUIRED_EXTENSION_VERSION}으로 업데이트해 주세요.` : '확장 연결을 먼저 확인해 주세요.');
     thumbProg = { running: true, done: 0, total: 1 };
     refreshAll();
     window.postMessage({ app: 'letsbuy-web', type: 'fillImages', force: true }, location.origin);
@@ -275,17 +276,18 @@
     const b = el && el.querySelector('#fillImg');
     if (!b) return;
     b.onclick = () => {
-      if (extInfo) return startPhotoFill();
+      if (extensionIsCurrent()) return startPhotoFill();
+      if (extInfo) return toast(`확장 v${extInfo.version}은(는) 오래됐어요. v${REQUIRED_EXTENSION_VERSION}으로 업데이트해 주세요.`);
       // 설치되어 있어도 content script의 최초 hello가 페이지보다 먼저 오면 놓칠 수 있다.
       // 여기서 다시 연결을 요청해, 사용자가 두 번 눌러야 하는 상황을 없앤다.
       b.disabled = true;
       b.textContent = '확장 연결 확인 중…';
       requestExtension();
       setTimeout(() => {
-        if (extInfo) return startPhotoFill();
+        if (extensionIsCurrent()) return startPhotoFill();
         b.disabled = false;
         b.textContent = '사진 채우기';
-        toast('확장 연결을 찾지 못했어요. 확장 관리 화면에서 렛츠바이 수집기가 켜져 있는지 확인해 주세요.');
+        toast(extInfo ? `확장 v${extInfo.version}을(를) v${REQUIRED_EXTENSION_VERSION}으로 업데이트해 주세요.` : '확장 연결을 찾지 못했어요. 확장 관리 화면에서 렛츠바이 수집기가 켜져 있는지 확인해 주세요.');
       }, 700);
     };
   }
@@ -352,21 +354,29 @@
   go(store.orders.length && location.hash !== '#home' ? (['prod', 'items', 'dash'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'prod') : 'home');
   $('#demo').onclick = () => { demo = true; render(); go('prod'); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
+  const REQUIRED_EXTENSION_VERSION = '0.15.0';
   let extInfo = null, extLog = [], extProbe = null, extHealth = null, collectProgress = null, extSettings = { shareThumbs: false };
+  function versionAtLeast(actual, required) {
+    const a = String(actual || '').split('.').map(n => Number(n) || 0), b = String(required).split('.').map(n => Number(n) || 0);
+    for (let i = 0; i < Math.max(a.length, b.length); i++) { if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0); }
+    return true;
+  }
+  const extensionIsCurrent = () => !!extInfo && versionAtLeast(extInfo.version, REQUIRED_EXTENSION_VERSION);
   function requestExtension() { window.postMessage({ app: 'letsbuy-web', type: 'pull' }, location.origin); }
   function requestHealth() { window.postMessage({ app: 'letsbuy-web', type: 'health' }, location.origin); }
   function renderHealth() {
     const panel = $('#healthPanel'); if (!panel) return;
-    const connected = !!extInfo, h = extHealth || {}, running = collectProgress?.state === 'running';
+    const connected = !!extInfo, current = extensionIsCurrent(), h = extHealth || {}, running = collectProgress?.state === 'running';
     const rows = [
       [connected, '페이지 연결', connected ? `수집기 v${extInfo.version}` : '확장을 찾는 중'],
-      [connected && h.ready !== false, '확장 준비', connected ? (h.ready === false ? '다시 불러오기가 필요해요' : '브리지 응답 확인') : '설치 후 이 페이지를 새로고침'],
-      [connected && h.storage !== false, '데이터 저장소', connected ? `확장 주문 ${h.orders ?? '?'}건 · 웹 주문 ${store.orders.length}건` : `웹 주문 ${store.orders.length}건`],
-      [connected, '작업 상태', running ? '수집 진행 중' : (h.pricedAt ? `가격 마지막 수집 ${h.pricedAt}` : '가격 기록 시작 전')]
+      [current, '설치 버전', connected ? (current ? `v${extInfo.version} · 최신 연결 방식` : `v${extInfo.version} → v${REQUIRED_EXTENSION_VERSION} 업데이트 필요`) : `v${REQUIRED_EXTENSION_VERSION} 설치 필요`],
+      [current && h.ready !== false, '확장 준비', !connected ? '설치 후 이 페이지를 새로고침' : !current ? '구버전은 수집·사진 기능을 실행하지 않아요' : (h.ready === false ? '확장을 다시 불러와 주세요' : '브리지 응답 확인')],
+      [current && h.storage !== false, '데이터 저장소', connected ? `확장 주문 ${h.orders ?? '?'}건 · 웹 주문 ${store.orders.length}건` : `웹 주문 ${store.orders.length}건`],
+      [current, '작업 상태', running ? '수집 진행 중' : (h.pricedAt ? `가격 마지막 수집 ${h.pricedAt}` : '가격 기록 시작 전')]
     ];
-    $('#healthPill').textContent = connected ? '확장 연결됨' : '확장 설치 또는 새로고침 필요';
-    $('#healthPill').className = 'pill ' + (connected ? 'on' : '');
-    $('#healthSummary').textContent = connected ? '연결은 확인됐어요. 수집 중에는 아래에 실제 메일 진행률을 표시합니다.' : '확장을 설치·켜고 이 페이지를 새로고침한 뒤 다시 확인하세요.';
+    $('#healthPill').textContent = current ? `확장 v${extInfo.version} 연결됨` : (connected ? '확장 업데이트 필요' : '확장 설치 또는 새로고침 필요');
+    $('#healthPill').className = 'pill ' + (current ? 'on' : (connected ? 'warn' : ''));
+    $('#healthSummary').textContent = current ? '연결은 확인됐어요. 수집 중에는 아래에 실제 메일 진행률을 표시합니다.' : (connected ? `구버전 v${extInfo.version}이 연결됐어요. 설치 안내의 방법으로 v${REQUIRED_EXTENSION_VERSION}으로 업데이트한 뒤 이 페이지를 새로고침하세요.` : '확장을 설치·켜고 이 페이지를 새로고침한 뒤 다시 확인하세요.');
     $('#healthChecks').innerHTML = rows.map(([ok, label, note]) => `<div class="hcheck ${ok ? 'ok' : 'warn'}"><b>${ok ? '✓' : '!' } ${label}</b><span>${esc(note)}</span></div>`).join('');
     const cs = $('#collectStatus'), cancel = $('#cancelCollect');
     if (collectProgress?.text) { cs.hidden = false; cs.innerHTML = `<b>${running ? '수집 중' : collectProgress.state === 'cancelled' ? '중단됨' : '최근 수집'}</b> · ${esc(collectProgress.text)}`; }
@@ -376,8 +386,9 @@
   function markExtensionConnected(version) {
     const firstConnection = !extInfo;
     extInfo = { version: version || extInfo?.version || '?' };
-    $('#extState').textContent = version ? `확장 v${version} 연결됨` : '확장 연결됨';
-    $('#extState').classList.add('on');
+    const current = extensionIsCurrent();
+    $('#extState').textContent = current ? `확장 v${extInfo.version} 연결됨` : `확장 v${extInfo.version} 업데이트 필요`;
+    $('#extState').classList.toggle('on', current);
     if (extProbe) { clearInterval(extProbe); extProbe = null; }
     if (firstConnection) setTimeout(probeAI, 300);
     renderHealth();
@@ -389,7 +400,7 @@
     if (e.data.type === 'collectProgress') { collectProgress = e.data.progress || null; renderHealth(); }
     if (e.data.type === 'hello') markExtensionConnected(e.data.version);
     if (e.data.type === 'thumbProg') { thumbProg = e.data.prog; const el = document.querySelector('.phbar'); if (el) el.outerHTML = photoBar(); bindPhoto(document); }
-    if (e.data.type === 'data') { const wasEmpty = !store.orders.length; if (!extInfo) markExtensionConnected(e.data.version); if (e.data.mailStats) store.mailStats = e.data.mailStats; if (e.data.pricedTs) store.pricedTs = e.data.pricedTs; if (e.data.collectProgress) collectProgress = e.data.collectProgress; if (e.data.settings) { extSettings = e.data.settings; $('#shareThumbs').checked = !!extSettings.shareThumbs; } THUMB = {}; for (const [k, v] of Object.entries(e.data.thumbs || {})) THUMB[k] = v.d || v.u; if (e.data.thumbProg) thumbProg = e.data.thumbProg; if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders || [], e.data.prices || {}, true); if (wasEmpty && (e.data.orders || []).length && cur === 'home') go('items'); $('#extState').textContent = `확장 v${e.data.version || extInfo.version} · 주문 ${(e.data.orders || []).length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; renderHealth(); }
+    if (e.data.type === 'data') { const wasEmpty = !store.orders.length; if (!extInfo) markExtensionConnected(e.data.version); if (e.data.mailStats) store.mailStats = e.data.mailStats; if (e.data.pricedTs) store.pricedTs = e.data.pricedTs; if (e.data.collectProgress) collectProgress = e.data.collectProgress; if (e.data.settings) { extSettings = e.data.settings; $('#shareThumbs').checked = !!extSettings.shareThumbs; } THUMB = {}; for (const [k, v] of Object.entries(e.data.thumbs || {})) THUMB[k] = v.d || v.u; if (e.data.thumbProg) thumbProg = e.data.thumbProg; if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders || [], e.data.prices || {}, true); if (wasEmpty && (e.data.orders || []).length && cur === 'home') go('items'); const version = e.data.version || extInfo.version; $('#extState').textContent = extensionIsCurrent() ? `확장 v${version} · 주문 ${(e.data.orders || []).length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}` : `확장 v${version} 업데이트 필요`; $('#extState').classList.toggle('on', extensionIsCurrent()); renderHealth(); }
     if (e.data.type === 'data') setTimeout(sharedFill, 300);
   });
   // 확장이 먼저 로드돼 hello를 이미 보냈더라도, pull 응답(data)으로 연결을 판정한다.

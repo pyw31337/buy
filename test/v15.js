@@ -1,4 +1,5 @@
 const assert = require('assert');
+const fs = require('fs');
 const LetsBuy = require('../docs/core.js');
 
 // 가격 검색 결과에는 매칭 근거를 남기고, 낮은 유사도는 강한 구매 추천을 막는다.
@@ -21,4 +22,8 @@ const product = Products.build({ orders, aliases: {}, today: '2026-03-05', price
   [key]: [{ date: '2026-03-05', price: 8900, src: '네이버', title: '비슷하지만 다른 구성', matchLevel: 'low' }]
 } })[0];
 assert.strictEqual(product.verdict.t, '상품 확인 필요');
+const app = fs.readFileSync(require('path').join(__dirname, '../docs/app.js'), 'utf8');
+assert(app.includes("const REQUIRED_EXTENSION_VERSION = '0.15.0'"), '웹이 필요한 확장 버전을 명시한다');
+assert(app.includes('function versionAtLeast(actual, required)'), '구버전 연결을 판별한다');
+assert(app.includes('확장 업데이트 필요'), '구버전의 업데이트 안내를 표시한다');
 console.log('V15 SAFETY PASS');
