@@ -266,7 +266,9 @@
     const a = tokens(name); if (!a.length) return null;
     const ok = list.map(x => ({ ...x, s: sim(a, tokens(x.title)) })).filter(x => x.s >= 0.5);
     if (!ok.length) return null;
-    const top = Math.max(...ok.map(x => x.s)); return ok.filter(x => x.s >= top - 0.25).sort((x, y) => x.price - y.price)[0];
+    const top = Math.max(...ok.map(x => x.s)), picked = ok.filter(x => x.s >= top - 0.25).sort((x, y) => x.price - y.price)[0];
+    const score = +picked.s.toFixed(2);
+    return { ...picked, matchScore: score, matchLevel: score >= .8 ? 'high' : score >= .65 ? 'medium' : 'low' };
   }
   const FAILS = new Set(['order', 'shipping', 'delivered', 'sub']);
   // 같은 주문이 주문완료·발송·배송완료 메일로 여러 번 → 하나로. 주문번호 같으면 같은 주문, 없으면 같은 쇼핑몰·이름 5일 이내

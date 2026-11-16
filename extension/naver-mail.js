@@ -115,11 +115,13 @@ async function collectAll() {
   let orders = [];
   try { orders = await strategyApi(); }
   catch (e) { diag('collect', false, e.message); orders = readOpenMail(); if (!orders.length) { lbToast('자동 수집이 막혔어요 · 주문 메일을 열고 다시 눌러 주세요', true); running = false; chrome.runtime.sendMessage({ type: 'done', count: 0, failed: true }); return; } }
+  const cancelled = stopFlag; if (STATS && cancelled) STATS.cancelled = true;
   chrome.runtime.sendMessage({ type: 'orders', orders, mails: RAW, stats: STATS && { ...STATS, at: new Date().toISOString(), src: 'naver' }, done: true });
-  lbToast(`완료 · 상품 ${orders.length}개`, true); running = false;
+  lbToast(`${cancelled ? '중단' : '완료'} · 상품 ${orders.length}개`, true); running = false;
 }
 chrome.runtime.onMessage.addListener((msg, _s, reply) => {
   if (msg.type === 'collect') { collectAll(); reply({ ok: true }); }
+  if (msg.type === 'cancelCollect') { stopFlag = true; say('렛츠바이 · 수집을 중단하고 있어요'); reply({ ok: true }); }
   if (msg.type === 'readOpen') reply({ orders: readOpenMail() });
   return true;
 });

@@ -19,7 +19,7 @@ async function gCollect() {
   const ik = gIk(); diag('gmail-ik', !!ik, ik ? 'found' : 'missing');
   location.hash = '#search/' + encodeURIComponent(GQ);
   let ids = await waitRows(''), all = new Set(ids), page = 1;
-  while (page < 400) {
+  while (page < 400 && !gstop) {
     const older = document.querySelector('[aria-label="이전"][role="button"]:not([aria-disabled="true"]), [aria-label="Older"][role="button"]:not([aria-disabled="true"]), [data-tooltip="이전"]:not([aria-disabled="true"])');
     if (!older) break;
     older.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); older.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
@@ -30,6 +30,7 @@ async function gCollect() {
   if (!all.size) throw new Error('Gmail 검색 결과를 읽지 못했어요');
   const orders = []; let n = 0, fail = 0;
   for (const th of all) {
+    if (gstop) break;
     try {
       const r = await fetch(`${gBase()}?ik=${ik}&view=pt&search=all&permthid=thread-f:${th}&th=${th}`, { credentials: 'include' });
       const html = await r.text(), d = new DOMParser().parseFromString(html, 'text/html');
@@ -47,15 +48,16 @@ async function gCollect() {
   diag('gmail-done', true, `threads=${all.size} orders=${orders.length} fail=${fail}`);
   return orders;
 }
-let grunning = false, GRAW = [], GSTATS = null;
+let grunning = false, gstop = false, GRAW = [], GSTATS = null;
 chrome.runtime.onMessage.addListener((m, _s, reply) => {
   if (m.type === 'collect' && !grunning) {
-    grunning = true; GRAW = []; lbToast('렛츠바이 수집 시작');
-    gCollect().then(o => { chrome.runtime.sendMessage({ type: 'orders', orders: o, mails: GRAW, stats: GSTATS, done: true }); lbToast(`완료 · 상품 ${o.length}개`, true); })
+    grunning = true; gstop = false; GRAW = []; lbToast('렛츠바이 수집 시작');
+    gCollect().then(o => { if (GSTATS && gstop) GSTATS.cancelled = true; chrome.runtime.sendMessage({ type: 'orders', orders: o, mails: GRAW, stats: GSTATS, done: true }); lbToast(`${gstop ? '중단' : '완료'} · 상품 ${o.length}개`, true); })
       .catch(e => { diag('gmail', false, e.message); lbToast('Gmail 수집이 막혔어요', true); chrome.runtime.sendMessage({ type: 'done', count: 0, failed: true }); })
       .finally(() => grunning = false);
     reply({ ok: true });
   }
+  if (m.type === 'cancelCollect') { gstop = true; reply({ ok: true }); }
   return true;
 });
 diag('mail-page', true, 'gmail');

@@ -1,11 +1,30 @@
 (() => {
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
-  const KEY = 'letsbuy.v1';
-  let store = Object.assign({ orders: [], prices: {}, aliases: {}, cats: {}, onboarded: false }, JSON.parse(localStorage.getItem(KEY) || 'null') || {});
+  const KEY = 'letsbuy.v1', BACKUP_KEY = 'letsbuy.backups.v1';
+  let store = Object.assign({ schema: 2, orders: [], prices: {}, aliases: {}, cats: {}, ignored: {}, onboarded: false }, JSON.parse(localStorage.getItem(KEY) || 'null') || {});
   store.orders = LetsBuy.dedupe(store.orders); // 예전 해석기가 남긴 잘못된 항목 정리
   let demo = false;
   let filter = 'all', catF = null;
-  const save = () => { localStorage.setItem(KEY, JSON.stringify(store)); window.postMessage({ app: 'letsbuy-web', type: 'aliases', aliases: store.aliases }, location.origin); };
+  const save = () => { store.schema = 2; localStorage.setItem(KEY, JSON.stringify(store)); window.postMessage({ app: 'letsbuy-web', type: 'aliases', aliases: store.aliases }, location.origin); };
+  // 삭제·덮어쓰기 전에 최근 5개만 남긴다. 서버 없이도 실수에서 되돌아갈 수 있다.
+  function snapshot(reason) {
+    try {
+      const copy = JSON.parse(JSON.stringify(store));
+      if (!copy.orders?.length && !Object.keys(copy.prices || {}).length) return false;
+      const before = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]');
+      before.unshift({ reason, at: new Date().toISOString(), store: copy });
+      localStorage.setItem(BACKUP_KEY, JSON.stringify(before.slice(0, 5)));
+      return true;
+    } catch { return false; }
+  }
+  function restoreLatest() {
+    try {
+      const backups = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]'), latest = backups[0];
+      if (!latest?.store) return toast('복원할 자동 백업이 없어요');
+      if (!confirm(`${new Date(latest.at).toLocaleString('ko-KR')}의 ${latest.reason} 전 상태로 복원할까요?`)) return;
+      snapshot('복원 전'); store = Object.assign({ schema: 2, orders: [], prices: {}, aliases: {}, cats: {}, onboarded: true }, latest.store); save(); render(); toast('최근 자동 백업을 복원했어요');
+    } catch { toast('자동 백업을 읽지 못했어요'); }
+  }
   const kToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   let plat = null; // 플랫폼 필터: 누르면 그 곳에서 산 것만으로 모든 화면을 다시 구성
   const platOf = m => /네이버|스마트스토어|N ?pay/i.test(m || '') ? '네이버' : /컬리/.test(m || '') ? '컬리' : /롯데ON|롯데온/i.test(m || '') ? '롯데ON' : /배민|배달의민족/.test(m || '') ? '배민' : String(m || '').replace(/\s*최저$/, '');
@@ -109,7 +128,7 @@
       <div class="cbot"><span class="chips">${it.malls.map(mallChip).join('')}<span class="cnt">${svg('chart', 13)}${it.count}회 · ${it.type === '시즌' ? '매년' : it.avgGap + '일'}</span></span>${pv ? `<b class="pr">${fmt(pv.now)}</b>` : last ? `<b class="pr dim">${fmt(last)}</b>` : ''}</div></div>`;
   }
   function render() {
-    const d = data(), items = LetsBuy.analyze(d.orders, d.today, d.aliases);
+    const d = data(), items = LetsBuy.analyze(d.orders, d.today, d.aliases).filter(i => !store.ignored?.[i.key]);
     const has = !!(store.orders.length || demo);
     $('[data-tab=prod]').style.display = $('[data-tab=items]').style.display = $('[data-tab=dash]').style.display = has ? '' : 'none';
     if (!has && cur !== 'home') go('home');
@@ -123,7 +142,7 @@
     $('#due').innerHTML = due.map(i => card(i, d)).join('') ;
     $('#season').innerHTML = season.map(i => card(i, d)).join(''); $('#seasonH').style.display = season.length ? '' : 'none';
     const q = $('#q').value.trim();
-    const all = LetsBuy.analyze(d.orders, d.today, d.aliases, { all: true });
+    const all = LetsBuy.analyze(d.orders, d.today, d.aliases, { all: true }).filter(i => !store.ignored?.[i.key]);
     const rows = all.filter(i => (filter === 'all' || (filter === '재구매' ? i.count >= 2 : filter === '1회' ? i.count === 1 : i.type.startsWith(filter))) && (!q || i.name.includes(q)) && (!catF || LetsBuyInsights.categorize(i.name, store.cats[i.key]).main === catF))
       .sort((x, y) => (y.count >= 2) - (x.count >= 2) || (x.count >= 2 ? x.daysLeft - y.daysLeft : (x.last < y.last ? 1 : -1)));
     $$('#filter button').forEach(b => { const f = b.dataset.f, n = f === 'all' ? all.length : f === '재구매' ? all.filter(i => i.count >= 2).length : f === '1회' ? all.filter(i => i.count === 1).length : all.filter(i => i.type.startsWith(f)).length; b.innerHTML = `<span>${b.dataset.l}</span><i class="n">${n.toLocaleString()}</i>`; });
@@ -231,6 +250,7 @@
   const refreshAll = () => { render(); if (window.renderProd) window.renderProd(); if (cur === 'dash' && window.renderDash) window.renderDash(); };
   // 공유 캐시: 사진 없는 제품만, 제품 키 해시로 한 번에 물어봄 (이름 해시 외엔 아무것도 보내지 않음)
   async function sharedFill() {
+    if (!extSettings?.shareThumbs) return;
     if (!window.crypto || !crypto.subtle) return;
     const items = LetsBuy.analyze(raw().orders, raw().today, raw().aliases, { all: true }).filter(it => !THUMB[it.key] && !sharedAsked.has(it.key));
     if (!items.length) return; items.forEach(it => sharedAsked.add(it.key));
@@ -317,15 +337,42 @@
   };
   $('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); merge(j.orders, j.prices); toast(`${j.orders?.length || 0}건 불러옴`); } catch { toast('파일을 못 읽었어요'); } };
   $('#export').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(store, null, 1)], { type: 'application/json' })); a.download = 'letsbuy-backup.json'; a.click(); toast("백업 저장 (썸네일은 서버 캐시에서 채워짐)"); };
-  $('#reset').onclick = () => { if (confirm('모두 지울까요?')) { store = { orders: [], prices: {}, aliases: {}, onboarded: true }; save(); demo = false; render(); } };
+  $('#reset').onclick = () => { if (confirm('모두 지울까요? 최근 자동 백업에서 되돌릴 수 있어요.')) { snapshot('초기화'); store = { schema: 2, orders: [], prices: {}, aliases: {}, cats: {}, ignored: {}, onboarded: true }; save(); demo = false; render(); renderIgnored(); toast('초기화했어요 · 최근 자동 백업에서 되돌릴 수 있어요'); } };
+  $('#restoreLatest').onclick = restoreLatest;
+  function renderIgnored() {
+    const el = $('#ignoredList'); if (!el) return;
+    const all = LetsBuy.analyze(store.orders, kToday(), store.aliases, { all: true });
+    const hidden = all.filter(i => store.ignored?.[i.key]);
+    el.innerHTML = hidden.length ? hidden.map(i => `<button class="btn sm ghost" data-unignore="${esc(i.key)}">${esc(i.name)} · 다시 추천</button>`).join(' ') : '<p class="hint">제외한 추천이 없어요.</p>';
+    el.querySelectorAll('[data-unignore]').forEach(b => b.onclick = () => { delete store.ignored[b.dataset.unignore]; save(); refreshAll(); renderIgnored(); toast('다시 추천에 넣었어요'); });
+  }
   $$('[data-i]').forEach(e => e.innerHTML = svg(e.dataset.i, e.classList.contains('sic') ? 26 : 18));
   $('#mallRow').innerHTML = ['쿠팡', '네이버페이', 'G마켓', '옥션', '11번가', 'SSG', '마켓컬리', '롯데ON', '오늘의집', '메가마트', '배민'].map(m => `<span class="mtile">${logo(m, 28)}${esc(mallName(m))}</span>`).join('') + '<span class="mtile more">+ Gmail · 네이버 메일</span>';
   { const sd = { ...LETSBUY_SAMPLE, aliases: {} }; $('#mockCards').innerHTML = LetsBuy.analyze(sd.orders, sd.today, {}).slice(0, 3).map(i => card(i, sd)).join(''); }
   go(store.orders.length && location.hash !== '#home' ? (['prod', 'items', 'dash'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'prod') : 'home');
   $('#demo').onclick = () => { demo = true; render(); go('prod'); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
-  let extInfo = null, extLog = [], extProbe = null;
+  let extInfo = null, extLog = [], extProbe = null, extHealth = null, collectProgress = null, extSettings = { shareThumbs: false };
   function requestExtension() { window.postMessage({ app: 'letsbuy-web', type: 'pull' }, location.origin); }
+  function requestHealth() { window.postMessage({ app: 'letsbuy-web', type: 'health' }, location.origin); }
+  function renderHealth() {
+    const panel = $('#healthPanel'); if (!panel) return;
+    const connected = !!extInfo, h = extHealth || {}, running = collectProgress?.state === 'running';
+    const rows = [
+      [connected, '페이지 연결', connected ? `수집기 v${extInfo.version}` : '확장을 찾는 중'],
+      [connected && h.ready !== false, '확장 준비', connected ? (h.ready === false ? '다시 불러오기가 필요해요' : '브리지 응답 확인') : '설치 후 이 페이지를 새로고침'],
+      [connected && h.storage !== false, '데이터 저장소', connected ? `확장 주문 ${h.orders ?? '?'}건 · 웹 주문 ${store.orders.length}건` : `웹 주문 ${store.orders.length}건`],
+      [connected && !running, '작업 상태', running ? '수집 진행 중' : (h.pricedAt ? `가격 마지막 수집 ${h.pricedAt}` : '가격 기록 시작 전')]
+    ];
+    $('#healthPill').textContent = connected ? '확장 연결됨' : '확장 설치 또는 새로고침 필요';
+    $('#healthPill').className = 'pill ' + (connected ? 'on' : '');
+    $('#healthSummary').textContent = connected ? '연결은 확인됐어요. 수집 중에는 아래에 실제 메일 진행률을 표시합니다.' : '확장을 설치·켜고 이 페이지를 새로고침한 뒤 다시 확인하세요.';
+    $('#healthChecks').innerHTML = rows.map(([ok, label, note]) => `<div class="hcheck ${ok ? 'ok' : 'warn'}"><b>${ok ? '✓' : '!' } ${label}</b><span>${esc(note)}</span></div>`).join('');
+    const cs = $('#collectStatus'), cancel = $('#cancelCollect');
+    if (collectProgress?.text) { cs.hidden = false; cs.innerHTML = `<b>${running ? '수집 중' : collectProgress.state === 'cancelled' ? '중단됨' : '최근 수집'}</b> · ${esc(collectProgress.text)}`; }
+    else cs.hidden = true;
+    cancel.hidden = !running;
+  }
   function markExtensionConnected(version) {
     const firstConnection = !extInfo;
     extInfo = { version: version || extInfo?.version || '?' };
@@ -333,20 +380,26 @@
     $('#extState').classList.add('on');
     if (extProbe) { clearInterval(extProbe); extProbe = null; }
     if (firstConnection) setTimeout(probeAI, 300);
+    renderHealth();
   }
   window.addEventListener('message', e => {
     if (e.source !== window || e.origin !== location.origin || !e.data || e.data.app !== 'letsbuy-ext') return;
     if (e.data.type === 'diag') extLog = e.data.diag;
+    if (e.data.type === 'health') { extHealth = e.data.health || null; if (extHealth?.settings) { extSettings = extHealth.settings; $('#shareThumbs').checked = !!extSettings.shareThumbs; } renderHealth(); }
+    if (e.data.type === 'collectProgress') { collectProgress = e.data.progress || null; renderHealth(); }
     if (e.data.type === 'hello') markExtensionConnected(e.data.version);
     if (e.data.type === 'thumbProg') { thumbProg = e.data.prog; const el = document.querySelector('.phbar'); if (el) el.outerHTML = photoBar(); bindPhoto(document); }
-    if (e.data.type === 'data') { const wasEmpty = !store.orders.length; if (!extInfo) markExtensionConnected(e.data.version); if (e.data.mailStats) store.mailStats = e.data.mailStats; if (e.data.pricedTs) store.pricedTs = e.data.pricedTs; THUMB = {}; for (const [k, v] of Object.entries(e.data.thumbs || {})) THUMB[k] = v.d || v.u; if (e.data.thumbProg) thumbProg = e.data.thumbProg; if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders || [], e.data.prices || {}, true); if (wasEmpty && (e.data.orders || []).length && cur === 'home') go('items'); $('#extState').textContent = `확장 v${e.data.version || extInfo.version} · 주문 ${(e.data.orders || []).length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
+    if (e.data.type === 'data') { const wasEmpty = !store.orders.length; if (!extInfo) markExtensionConnected(e.data.version); if (e.data.mailStats) store.mailStats = e.data.mailStats; if (e.data.pricedTs) store.pricedTs = e.data.pricedTs; if (e.data.collectProgress) collectProgress = e.data.collectProgress; if (e.data.settings) { extSettings = e.data.settings; $('#shareThumbs').checked = !!extSettings.shareThumbs; } THUMB = {}; for (const [k, v] of Object.entries(e.data.thumbs || {})) THUMB[k] = v.d || v.u; if (e.data.thumbProg) thumbProg = e.data.thumbProg; if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders || [], e.data.prices || {}, true); if (wasEmpty && (e.data.orders || []).length && cur === 'home') go('items'); $('#extState').textContent = `확장 v${e.data.version || extInfo.version} · 주문 ${(e.data.orders || []).length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; renderHealth(); }
     if (e.data.type === 'data') setTimeout(sharedFill, 300);
   });
   // 확장이 먼저 로드돼 hello를 이미 보냈더라도, pull 응답(data)으로 연결을 판정한다.
-  requestExtension();
+  requestExtension(); requestHealth(); renderHealth(); renderIgnored();
   extProbe = setInterval(() => { if (!extInfo) requestExtension(); }, 1000);
   setTimeout(sharedFill, 1200);
-  $('#pullExt').onclick = requestExtension;
+  $('#pullExt').onclick = () => { requestExtension(); requestHealth(); };
+  $('#healthCheck').onclick = () => { requestExtension(); requestHealth(); toast('연결 상태를 다시 확인하고 있어요'); };
+  $('#cancelCollect').onclick = () => window.postMessage({ app: 'letsbuy-web', type: 'cancelCollect' }, location.origin);
+  $('#shareThumbs').onchange = e => window.postMessage({ app: 'letsbuy-web', type: 'settings', settings: { ...extSettings, shareThumbs: e.target.checked } }, location.origin);
   setTimeout(() => { if (!$('#extState').classList.contains('on')) $('#extState').textContent = '확장 없음'; }, 1500);
   function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('on'), 2400); }
 
@@ -397,9 +450,6 @@
   window.addEventListener('message', e => { if (e.source === window && e.data && e.data.app === 'letsbuy-ext' && e.data.type === 'mails') exportSamples(e.data.mails); });
   $$('.sampleBtn').forEach(b => b.onclick = () => { if (!extInfo) { toast('확장이 연결되어 있어야 해요'); return; } window.postMessage({ app: 'letsbuy-web', type: 'mails' }, location.origin); });
   $('#diagWeb').onclick = () => { window.postMessage({ app: 'letsbuy-web', type: 'diag' }, location.origin); setTimeout(() => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ at: new Date().toISOString(), ua: navigator.userAgent, ext: extInfo, orders: store.orders.length, malls: [...new Set(store.orders.map(o => o.mall))], sources: [...new Set(store.orders.map(o => o.source))], priceItems: Object.keys(store.prices).length, aliases: Object.keys(store.aliases).length, extLog }, null, 1)], { type: 'application/json' })); a.download = 'letsbuy-diagnostic.json'; a.click(); }, 600); };
-  render();
-})();
-
   // ===== Google Drive 동기화 (옵트인) =====
   const GDRIVE_CLIENT_ID = "154827314076-66t4aaahcmpvmaua8qgnoobn2sd9a4j8.apps.googleusercontent.com";
   let gToken = null;
@@ -446,6 +496,7 @@
       if (!res.ok) throw new Error("파일 없음");
       const j = await res.json();
       if (confirm(`드라이브 데이터(${j.orders?.length || 0}건)로 현재 데이터를 덮어쓸까요?\n취소하면 병합합니다.`)) {
+        snapshot('드라이브 덮어쓰기');
         store = Object.assign(store, j); save(); render();
         toast("드라이브 데이터로 복원했어요");
       } else {
@@ -457,3 +508,6 @@
   }
   if ($("#gdriveSave")) $("#gdriveSave").onclick = gdriveSave;
   if ($("#gdriveLoad")) $("#gdriveLoad").onclick = gdriveLoad;
+  renderIgnored();
+  render();
+})();

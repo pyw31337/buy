@@ -1,6 +1,6 @@
 # 렛츠바이 인수인계 (HANDOFF)
 
-> 마지막 갱신: 2026-11-16 (KST) · 현재 버전 **v0.14.4** · 사이트 https://pyw31337.github.io/buy/
+> 마지막 갱신: 2026-11-16 (KST) · 현재 버전 **v0.15.0** · 사이트 https://pyw31337.github.io/buy/
 
 ## 1. 제품과 사용자
 - **목표:** 주문 메일에서 "자주 사는 물건"을 찾아 **다시 살 때**와 **지금 최저가**를 알려주는 개인 구매 비서. 데이터는 사용자의 브라우저에만 저장.
@@ -25,9 +25,9 @@
        ▼
 [Cloudflare Worker letsbuy-thumbs + R2]  https://letsbuy-thumbs.pyw213.workers.dev
 ```
-- **확장:** 메일 수집(2년, 전체 메일함), 하루 1회 가격 수집(다나와, 에누리, 쿠팡, 네이버쇼핑 검색을 사용자 브라우저에서 실행. 요청 간격 2.5–4초, 막히면 그날은 쉬), 사진 채우기를 맡습니다.
+- **확장:** 메일 수집(2년, 전체 메일함), 하루 1회 가격 수집(다나와, 에누리, 쿠팡, 네이버쇼핑 검색을 사용자 브라우저에서 실행. 요청 간격 2.5–4초, 막히면 그날은 쉬), 사용자가 시작한 사진 채우기를 맡습니다.
 - **사진 수집에는 AI를 쓰지 않습니다.**
-  - 사진 출처는 세 가지입니다: 메일 속 이미지 주소, 쇼핑몰 검색 결과의 대표 사진, 공유 캐시.
+  - 사진 출처는 세 가지입니다: 메일 속 이미지 주소, 쇼핑몰 검색 결과의 대표 사진, 공유 캐시. **공유 캐시는 기본 해제**이고 사용자가 `shareThumbs`를 켤 때만 조회·업로드합니다.
   - 모두 확장이 사용자 브라우저에서 처리하므로, 다른 사용자도 확장만 설치하면 같이 동작합니다.
 - **로컬 AI(Ollama)는 숨은 선택 기능**입니다(v0.14.1). AI 버튼과 안내는 기본으로 숨겨 둡니다.
   - 사이트가 확장에 연결되면(hello) 확장이 `127.0.0.1:11434/api/tags`를 조용히 확인합니다(`probeAI`, op 'ping').
@@ -52,7 +52,7 @@
 | docs/products.js | '살 때' 카드와 제품 상세, 판단 model() |
 | docs/dash.js, insights.js | 내 소비 분석과 카테고리 사전 |
 | docs/brand/, favicon.ico, manifest.webmanifest, og-image.png | 브랜드. 아이콘은 오너 제공 가방 이미지 기반 (v0.14.2–0.14.3) |
-| docs/letsbuy-extension.zip | 사이트에서 내려받는 확장 파일 |
+| docs/letsbuy-extension-v0.15.0.zip | v0.15.0 확장 릴리스 파일 |
 | extension/ | MV3: background(수집, 가격, 사진), naver-mail, gmail, bridge, order-list, price-page, diag |
 | worker/ | 썸네일 Worker 사본 |
 | test/ | node 테스트. fixtures는 가짜 데이터만 |
@@ -61,10 +61,10 @@
 ```bash
 npm test                      # 반드시 0으로 끝나야 함
 cp docs/core.js extension/core.js
-python3 -c "import shutil;shutil.make_archive('docs/letsbuy-extension','zip','extension')"
+python3 -c "import shutil;shutil.make_archive('docs/letsbuy-extension-v0.15.0','zip','extension')"
 git -c user.name=pyw31337 -c user.email=pyw31337@users.noreply.github.com commit -am "vX.Y.Z: ..."
 git push                      # main/docs → GitHub Pages가 1–2분 안에 자동 배포
-gh release create vX.Y.Z docs/letsbuy-extension.zip -t vX.Y.Z -n "..."
+gh release create vX.Y.Z docs/letsbuy-extension-vX.Y.Z.zip -t vX.Y.Z -n "..."
 ```
 - **버전:** extension/manifest.json의 `version`, index.html의 `?v=`, 릴리스 태그를 함께 올립니다.
 - **gh 인증:** 박스의 gh CLI 로그인을 사용합니다. 토큰은 저장소에 절대 넣지 않습니다.
@@ -80,10 +80,10 @@ gh release create vX.Y.Z docs/letsbuy-extension.zip -t vX.Y.Z -n "..."
 
 ## 6. 데이터 모델 (localStorage `letsbuy.v1` / 확장 storage)
 - `orders[]`: `{name, date:'YYYY-MM-DD', mall, price, qty, orderNo?, img?}`
-- `prices{key:[{date, price, src, title?, url?, img?}]}`: 하루 최저가 기록
+- `prices{key:[{date, price, src, title?, url?, img?, matchScore?, matchLevel?}]}`: 하루 최저가 기록. `matchLevel=low`는 강한 구매 추천을 막는다.
 - `aliases{name: groupName}`: 수동이나 AI로 묶은 결과. `cats{key: main}`: 분류 보정
 - `stats`(이번 수집), `mailStats{mails, ordersMail, parsed, notice, fail, kinds, failMall, noticeMall}`(저장된 메일 전체 기준), `pricedTs`
-- `thumbs{hash: dataURL}`, `thumbMiss`, `thumbProg`(확장)
+- `thumbs{hash: dataURL}`, `thumbMiss`, `thumbProg`, `collectProgress`, `settings{shareThumbs}`(확장). 웹은 `letsbuy.backups.v1`에 최근 5개 스냅샷을 보관한다.
 - **분석:** `LetsBuy.analyze(orders, today, aliases, {all})` → 품목 `{key, name, count(구매한 날 수), type(주기/주기(추정)/비정기/시즌/1회), avgGap, daysLeft, prices, malls}`
 - **묶기:** `tokens()`가 대괄호 머리말, 단위, 잡음 단어를 지우고 동의어(SYN)를 적용합니다. 토큰이 70% 이상 겹치면 같은 품목으로 봅니다.
 
@@ -115,6 +115,7 @@ gh release create vX.Y.Z docs/letsbuy-extension.zip -t vX.Y.Z -n "..."
 | v0.14.2 | 아이콘/OG 교체: 주황 가죽 가방 + 음각 'Let's' (오너 제공 이미지 기반). favicon, apple-touch, maskable, 확장 icons, 헤더 로고 |
 | v0.14.3 | OG 이미지 최종: 그래프 배경 + 가방 앞 휴대폰·영수증, 좌상단 “Let’s Buy” + 부제. 캐시버스트 ?v=0143 |
 | v0.14.4 | 확장 연결 핸드셰이크 보강: 페이지가 연결 요청을 재시도하고, 기존 확장의 data 응답도 연결로 판정. 사진 채우기 버튼은 연결을 자동 재확인. |
+| v0.15.0 | 연결 자가진단·실시간 수집 진행률·중단, 자동 백업/복원, 사진 공유 옵트인, 상품 매칭 유사도와 추천 제외를 추가. |
 
 **오너 피드백에서 얻은 교훈**
 - 형식을 추측하지 말고 실제 샘플을 요청합니다.

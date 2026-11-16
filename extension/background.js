@@ -23,20 +23,34 @@ chrome.action.onClicked.addListener(async tab => {
   });
 });
 chrome.runtime.onMessage.addListener((m, _s, reply) => {
-  if (m.type === 'progress') { const n = (m.text.match(/(\d+)개/) || [])[1]; if (n) badge(n); }
-  if (m.type === 'done' && m.failed) badge('!', '#C8321E');
+  if (m.type === 'progress') { const n = (m.text.match(/(\d+)개/) || [])[1]; if (n) badge(n); chrome.storage.local.set({ collectProgress: { state: 'running', text: m.text, at: new Date().toISOString() } }); }
+  if (m.type === 'done' && m.failed) { badge('!', '#C8321E'); chrome.storage.local.set({ collectProgress: { state: 'failed', text: '수집에 실패했어요. 메일 탭을 열고 다시 시도해 주세요.', at: new Date().toISOString() } }); }
   if (m.type === 'orders' && m.stats) chrome.storage.local.set({ collectStats: m.stats });
   if (m.type === 'orders') saveOrders(m.orders, m.mails).then(async n => {
     if (!m.done) return;
+    const stopped = !!m.stats?.cancelled;
+    await chrome.storage.local.set({ collectProgress: { state: stopped ? 'cancelled' : 'complete', text: stopped ? `중단됨 · 지금까지 상품 ${n}개를 저장했어요` : `완료 · 상품 ${n}개를 저장했어요`, at: new Date().toISOString() } });
     badge('✓', '#1F9D63'); setTimeout(() => badge(''), 8000);
     const [t] = await chrome.tabs.query({ url: WEB + '*' });
     if (t) { chrome.tabs.update(t.id, { active: true }); chrome.tabs.reload(t.id); } else chrome.tabs.create({ url: WEB });
-    fillImages().catch(e => diag('thumbs', false, e.message)); // 사진은 바로, 가격과 별개로
+    // 사진 검색은 사용자가 "사진 채우기"를 눌렀을 때만 시작한다.
     collectPrices().then(notify); // 가격은 뒤에서 조용히
   });
   if (m.type === 'pricesNow') { collectPrices().then(r => notify().then(() => reply(r))); return true; }
   if (m.type === 'testNotify') { show('test', '렛츠바이 알림 테스트', '알림이 잘 보이면 준비 완료예요.'); reply({}); }
+  if (m.type === 'health') {
+    chrome.storage.local.get(['orders', 'mails', 'pricedAt', 'collectProgress', 'settings'], d => reply({ ready: true, storage: true, orders: (d.orders || []).length, mails: (d.mails || []).length, pricedAt: d.pricedAt || null, collectProgress: d.collectProgress || null, settings: d.settings || { shareThumbs: false }, version: chrome.runtime.getManifest().version }));
+    return true;
+  }
+  if (m.type === 'settings') { chrome.storage.local.set({ settings: { shareThumbs: !!m.settings?.shareThumbs } }).then(() => reply({ ok: true })); return true; }
+  if (m.type === 'cancelCollect') { cancelCollections().then(() => reply({ ok: true })); return true; }
 });
+
+async function cancelCollections() {
+  const tabs = await chrome.tabs.query({ url: ['https://mail.naver.com/*', 'https://mail.google.com/*'] });
+  for (const tab of tabs) chrome.tabs.sendMessage(tab.id, { type: 'cancelCollect' }, () => void chrome.runtime.lastError);
+  await chrome.storage.local.set({ collectProgress: { state: 'cancelled', text: '중단 요청을 보냈어요. 현재 읽은 메일까지만 저장합니다.', at: new Date().toISOString() } });
+}
 chrome.notifications.onClicked.addListener(() => chrome.tabs.create({ url: 'https://pyw31337.github.io/buy/' }));
 
 // 원본 메일 HTML은 이 브라우저 안에만 보관 → 해석기가 좋아지면 다시 수집하지 않고 재분석
@@ -61,8 +75,9 @@ async function saveOrders(list, mails) {
   diag('save', true, `mails=${box.length} orders=${orders.length}`);
   return orders.length;
 }
-// 확장을 새로 고치거나 업데이트하면 보관한 메일로 자동 재분석
-chrome.runtime.onInstalled.addListener(() => saveOrders([], []).then(() => fillImages()));
+// 확장을 새로 고치거나 업데이트하면 보관한 메일로 자동 재분석한다.
+// 사진 검색은 사용자가 "사진 채우기"를 눌렀을 때만 수행한다.
+chrome.runtime.onInstalled.addListener(() => saveOrders([], []).then(() => diag('reanalyze', true, 'mail-only')));
 
 // 가격 소스: 순서대로 시도. 모두 사용자 브라우저(국내 IP)에서 품목당 하루 1회만 요청
 const SOURCES = [
@@ -109,7 +124,7 @@ async function collectPrices() {
         const html = await fetchText(s.url(q)), v = s.parse(html), im = s.img && s.img(html);
         const price = v ? +String(v).replace(/,/g, '') : 0;
         if (!price || price < 100) throw new Error('가격을 못 찾음');
-        arr.push({ date: today, price, mall: s.name + ' 최저', src: s.name, url: s.url(q), img: im || undefined }); ok++;
+        arr.push({ date: today, price, mall: s.name + ' 최저', src: s.name, url: s.url(q), img: im || undefined, matchLevel: 'query' }); ok++;
       } catch (e) { fails[s.name] = (fails[s.name] || 0) + 1; }
       await new Promise(r => setTimeout(r, 1200));
     }
@@ -118,7 +133,7 @@ async function collectPrices() {
       try {
         const m = LetsBuy.bestMatch(it.name, await shopSearch(s, q, st[s.name]));
         if (!m) throw new Error('비슷한 상품 없음');
-        arr.push({ date: today, price: m.price, mall: s.name, src: s.name, title: m.title.slice(0, 120), img: m.img || undefined, url: m.url || s.url(q).replace('&lb=1', ''), cat: m.cat || undefined }); ok++;
+        arr.push({ date: today, price: m.price, mall: s.name, src: s.name, title: m.title.slice(0, 120), img: m.img || undefined, url: m.url || s.url(q).replace('&lb=1', ''), cat: m.cat || undefined, matchScore: m.matchScore, matchLevel: m.matchLevel }); ok++;
       } catch (e) { fails[s.name] = (fails[s.name] || 0) + 1; }
       await new Promise(r => setTimeout(r, 2500 + Math.random() * 1500));
     }
@@ -198,16 +213,16 @@ let filling = false;
 async function fillImages(force) {
   if (filling) return { busy: true }; filling = true;
   try {
-    const st = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'thumbs', 'thumbMiss']);
+    const st = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'thumbs', 'thumbMiss', 'settings']);
     const thumbs = st.thumbs || {}, miss = st.thumbMiss || {}, today = todayStr(), prices = st.prices || {};
     const items = LetsBuy.analyze(st.orders || [], today, st.aliases || {}, { all: true }).sort((a, b) => b.count - a.count);
     const todo = items.filter(it => !thumbs[it.key] && (force || !miss[it.key] || Date.parse(today) - Date.parse(miss[it.key]) > 7 * 864e5));
     const prog = async (done, extra = {}) => chrome.storage.local.set({ thumbProg: { done, total: todo.length, have: Object.keys(thumbs).length, all: items.length, running: done < todo.length, at: new Date().toISOString(), ...extra } });
     await prog(0);
-    // 1) 공유 캐시를 한 번에 확인
+    // 1) 사용자가 허용했을 때만 공유 캐시를 확인한다.
     const hs = {}; for (const it of todo) hs[it.key] = await LetsBuy.thumbHash(it.key);
     const keys = todo.map(it => it.key);
-    for (let i = 0; i < keys.length; i += 200) {
+    if (st.settings?.shareThumbs) for (let i = 0; i < keys.length; i += 200) {
       try { const r = await (await fetch(LetsBuy.THUMBS + '/has?h=' + keys.slice(i, i + 200).map(k => hs[k]).join(','))).json(); const have = new Set(r.have || []); keys.slice(i, i + 200).forEach(k => { if (have.has(hs[k])) thumbs[k] = { u: LetsBuy.THUMBS + '/t/' + hs[k] + '.webp', from: '공유' }; }); } catch (e) { diag('thumb-has', false, e.message); }
     }
     await chrome.storage.local.set({ thumbs });
@@ -230,7 +245,7 @@ async function fillImages(force) {
       }
       if (blob) {
         thumbs[it.key] = { d: await b64(blob), from }; got++;
-        fetch(LetsBuy.THUMBS + '/t/' + hs[it.key] + '.webp', { method: 'PUT', headers: { 'Content-Type': 'image/webp' }, body: blob }).catch(() => {}); // 제품명 해시+사진만 공유
+        if (st.settings?.shareThumbs) fetch(LetsBuy.THUMBS + '/t/' + hs[it.key] + '.webp', { method: 'PUT', headers: { 'Content-Type': 'image/webp' }, body: blob }).catch(() => {}); // 제품명 해시+사진만 공유
       } else miss[it.key] = today;
       await chrome.storage.local.set({ thumbs, thumbMiss: miss }); await prog(n);
     }

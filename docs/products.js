@@ -15,7 +15,7 @@
     const last = p.reduce((m, x) => x.date > m ? x.date : m, '');
     const cur = {}; p.filter(x => day(last) - day(x.date) <= 3).forEach(x => { const s = srcOf(x); if (!cur[s] || x.date > cur[s].date || x.date === cur[s].date && x.price < cur[s].price) cur[s] = x; });
     const q = encodeURIComponent(it.name.replace(/\[[^\]]*\]|\([^)]*\)/g, ' ').trim().split(/\s+/).slice(0, 5).join(' '));
-    const sources = Object.values(cur).map(x => ({ src: srcOf(x), price: x.price, date: x.date, title: x.title, url: x.url || (SRCURL[srcOf(x)] || SRCURL['네이버'])(q) })).sort((a, b) => a.price - b.price);
+    const sources = Object.values(cur).map(x => ({ src: srcOf(x), price: x.price, date: x.date, title: x.title, url: x.url || (SRCURL[srcOf(x)] || SRCURL['네이버'])(q), matchScore: x.matchScore, matchLevel: x.matchLevel || 'query' })).sort((a, b) => a.price - b.price);
     const img = it.img || (p.slice().reverse().find(x => x.img) || {}).img || null;
     const mine = it.prices || [], myLast = mine.length ? mine[mine.length - 1] : null;
     const ya = mine.filter(x => Math.abs(day(today) - day(x.date) - 365) <= 60).slice(-1)[0] || null;
@@ -25,30 +25,31 @@
     let nextDip = null;
     if (series.length >= 14 && avg) { const st = []; series.forEach((x, i) => { const low = x.price <= avg * 0.97, prevLow = i && series[i - 1].price <= avg * 0.97; if (low && !prevLow) st.push(day(x.date)); }); if (st.length >= 2) { const gs = st.slice(1).map((v, i) => v - st[i]), g = Math.round(gs.reduce((a, b) => a + b, 0) / gs.length); let n = st[st.length - 1] + g; while (n <= day(today)) n += g; if (g >= 4) nextDip = { date: iso(n), d: n - day(today), gap: g }; } }
     const ref = myLast ? myLast.price : null, vsMine = now && ref ? Math.round((now.price - ref) / ref * 100) : null, vsYear = now && ya ? Math.round((now.price - ya.price) / ya.price * 100) : null;
-    let v;
+    let v, matchReady = true;
     if (now) {
       // v0.14: 판단 근거가 충분할 때만 단정. 가격 기록 7일 미만이면 내 지난 가격과만 비교
-      const days = series.length, enough = days >= 7, rr = ref ? now.price / ref : 1, refOk = ref && rr > 0.4 && rr < 2.5; // 묶음 수 다르면 비교 안 함
-      if (enough && now.price <= min * 1.02 && (!avg || now.price < avg * 0.99) || refOk && now.price <= ref * 0.93) v = { k: 'buy', t: '지금 사세요' };
+      const days = series.length, enough = days >= 7, rr = ref ? now.price / ref : 1, refOk = ref && rr > 0.4 && rr < 2.5; matchReady = now.matchLevel !== 'low'; // 묶음 수 다르면 비교 안 함
+      if (!matchReady) v = { k: 'ok', t: '상품 확인 필요' };
+      else if (enough && now.price <= min * 1.02 && (!avg || now.price < avg * 0.99) || refOk && now.price <= ref * 0.93) v = { k: 'buy', t: '지금 사세요' };
       else if (enough && nextDip && nextDip.d <= 21) v = { k: 'soon', t: `곧 떨어져요 D-${nextDip.d}` };
       else if (enough && avg && now.price > avg * 1.03 || refOk && now.price >= ref * 1.1 && it.daysLeft > 7) v = { k: 'wait', t: '기다리세요' };
       else if (!enough && !refOk) v = { k: 'ok', t: `가격 모으는 중 ${days}/7일` };
       else v = it.count >= 2 && it.daysLeft <= 7 ? { k: 'buy', t: '지금 사세요' } : { k: 'ok', t: '보통 가격' };
-      v.basis = enough ? `최근 ${days}일 기준` : refOk ? '내 지난 가격 기준' : '';
+      v.basis = !matchReady ? '검색 결과가 유사 상품일 수 있어요' : enough ? `최근 ${days}일 기준` : refOk ? '내 지난 가격 기준' : '';
     } else v = it.count >= 2 && it.daysLeft <= 7 ? { k: 'due', t: '살 때 됐어요' } : it.count >= 2 && it.daysLeft < 9999 ? { k: 'ok', t: `D-${it.daysLeft} 후 필요` } : { k: 'ok', t: '가격 모으는 중' };
     const urg = it.count >= 2 ? Math.max(0, 30 - Math.max(0, it.daysLeft)) : 0;
     const score = ({ buy: 100, soon: 70, due: 60, wait: 40, ok: 10 })[v.k] + urg + Math.min(20, it.count) + (vsMine != null && vsMine < 0 ? -vsMine : 0);
     // 추천 문장
     const won = n => n.toLocaleString('ko-KR') + '원';
     let say = '';
-    if (now) say = v.k === 'buy' ? `${now.src} ${won(now.price)} — ${ref ? (now.price <= ref ? `지난번보다 ${won(ref - now.price)} 싸요` : `최근 ${series.length}일 중 가장 싼 편이에요`) : '최근 최저가 근처예요'}.` : v.k === 'soon' ? `${nextDip.gap}일마다 값이 내려가요. ${+nextDip.date.slice(5, 7)}월 ${+nextDip.date.slice(8)}일쯤 기다려 보세요.` : v.k === 'wait' ? `지금은 최근 평균(${won(Math.round(avg))})보다 비싸요.` : `평소 가격이에요.`;
+    if (now) say = !matchReady ? `${now.src} 검색 결과가 정확히 같은 구성인지 확인한 뒤 비교해 주세요.` : v.k === 'buy' ? `${now.src} ${won(now.price)} — ${ref ? (now.price <= ref ? `지난번보다 ${won(ref - now.price)} 싸요` : `최근 ${series.length}일 중 가장 싼 편이에요`) : '최근 최저가 근처예요'}.` : v.k === 'soon' ? `${nextDip.gap}일마다 값이 내려가요. ${+nextDip.date.slice(5, 7)}월 ${+nextDip.date.slice(8)}일쯤 기다려 보세요.` : v.k === 'wait' ? `지금은 최근 평균(${won(Math.round(avg))})보다 비싸요.` : `평소 가격이에요.`;
     else say = it.count >= 2 ? `평균 ${it.avgGap}일마다 사셨어요. 현재가는 확장이 매일 모아요.` : '현재가는 확장이 매일 모아요.';
     if (it.count >= 2 && it.daysLeft <= 7 && v.k !== 'wait') say += it.daysLeft < 0 ? ' 다시 살 때가 지났어요.' : ' 곧 다시 살 때예요.';
     return { ...it, img, sources, now, series, avg: avg && Math.round(avg), min, myLast, yearAgo: ya, vsMine, vsYear, nextDip, verdict: v, score, say };
   }
   function build(d, opt) {
     const L = root.LetsBuy, I = root.LetsBuyInsights; opt = opt || {};
-    const all = L.analyze(d.orders, d.today, d.aliases, { all: true });
+    const all = L.analyze(d.orders, d.today, d.aliases, { all: true }).filter(it => !opt.ignored?.[it.key]);
     const A = I ? I.insights(d.orders, { today: d.today, cats: opt.cats || {}, aliases: d.aliases, prices: d.prices }) : null;
     return all.map(it => { const m = model(it, d.prices || {}, d.today, d.plat); const c = A && A.catOfKey[it.key]; return { ...m, cat: c ? c.main : '기타', sub: c ? c.sub : '' }; }).sort((a, b) => b.score - a.score);
   }
@@ -89,7 +90,7 @@
     const el = document.getElementById('prodBody'); if (!el || !root.LB_UI) return;
     const d = W('data')(), esc = W('esc'), svg = W('svg');
     if (!d.orders.length) { el.innerHTML = chips(d) + '<div class="empty">이 플랫폼 구매 기록이 없어요</div>'; bind(el); return; }
-    const all = build(d, { cats: W('store')().cats }); lastList = all;
+    const all = build(d, { cats: W('store')().cats, ignored: W('store')().ignored }); lastList = all;
     const rep = all.filter(p => p.count >= 2), base = view === 'rep' && rep.length ? rep : all;
     const list = base.filter(p => !catF || p.cat === catF);
     const nb = list.filter(p => p.verdict.k === 'buy').length, ns = list.filter(p => p.verdict.k === 'soon').length, nw = list.filter(p => p.verdict.k === 'wait').length;
@@ -148,13 +149,14 @@
         </div></div>
       <section class="pn"><h3>${svg('chart', 18)} 가격 추이</h3>${chart(p)}</section>
       <div class="dg">
-        <section class="pn"><h3>${svg('store', 18)} 플랫폼별 지금 가격</h3>${p.sources.length ? `<div class="ptab">${p.sources.map((x, i) => `<a class="pr ${i ? '' : 'min'}" target="_blank" rel="noopener" href="${esc(x.url)}">${lg(x.src, 28)}<span class="pt"><b>${esc(x.src)}</b><small>${esc(x.title || '')}</small></span><b class="pp">${fmt(x.price)}</b>${i ? `<small class="gap">+${fmt(x.price - p.sources[0].price)}</small>` : '<span class="best">최저</span>'}<span class="go">사러 가기 ›</span></a>`).join('')}</div>` : `<div class="empty sm">확장이 하루 한 번 쿠팡·네이버·다나와·에누리 가격을 모아요</div>`}</section>
+        <section class="pn"><h3>${svg('store', 18)} 플랫폼별 지금 가격</h3>${p.sources.length ? `<div class="ptab">${p.sources.map((x, i) => `<a class="pr ${i ? '' : 'min'}" target="_blank" rel="noopener" href="${esc(x.url)}">${lg(x.src, 28)}<span class="pt"><b>${esc(x.src)}</b><small>${esc(x.title || '')}${x.matchLevel === 'low' ? ' · 유사 상품 가능성' : x.matchLevel === 'medium' ? ' · 상품명 유사도 중간' : x.matchLevel === 'high' ? ' · 상품명 유사도 높음' : ' · 검색 최저가'}</small></span><b class="pp">${fmt(x.price)}</b>${i ? `<small class="gap">+${fmt(x.price - p.sources[0].price)}</small>` : '<span class="best">최저</span>'}<span class="go">사러 가기 ›</span></a>`).join('')}</div>` : `<div class="empty sm">확장이 하루 한 번 쿠팡·네이버·다나와·에누리 가격을 모아요</div>`}</section>
         <section class="pn"><h3>${svg('cart', 18)} 내 구매 기록</h3><div class="hist">${(p.prices || []).slice().reverse().slice(0, 20).map(o => `<div class="hr">${lg(o.mall, 20)}<span>${o.date.replace(/-/g, '.')}</span><b>${fmt(o.price)}</b></div>`).join('') || '<div class="empty sm">가격이 없는 구매예요</div>'}</div></section>
       </div>
-      <button class="btn ghost" id="pdEdit">이름·분류 고치기</button>`;
+      <div class="row"><button class="btn ghost" id="pdEdit">이름·분류 고치기</button><button class="btn ghost" id="pdIgnore">재구매 추천에서 제외</button></div>`;
     W('go')('pd');
     el.querySelector('#pdBack').onclick = () => W('go')('prod');
     el.querySelector('#pdEdit').onclick = () => W('openKey')(p.key);
+    el.querySelector('#pdIgnore').onclick = () => { const s = W('store')(); s.ignored = s.ignored || {}; s.ignored[p.key] = true; W('saveStore')(); W('go')('prod'); root.renderProd(); W('toast')('이 품목을 재구매 추천에서 제외했어요'); };
   }
   root.renderProd = render; root.prodChips = () => chips(); root.openProduct = detail; root.prodFilterCat = c => { catF = c; view = 'all'; W('go')('prod'); render(); };
   if (document.getElementById('prod') && document.getElementById('prod').classList.contains('on')) render();

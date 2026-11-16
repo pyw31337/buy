@@ -25,9 +25,11 @@
 
   // ── 상품명 판정: 약관·안내 문장 걸러내기 ──
   const BAD = /(교환|반품|환불|판매자|의무|책임|안내|경우|약관|고객센터|문의|규정|정책|동의|개인정보|수신|거부|발송|배송지|배송비|배송|배달|주문번호|주문일|결제|합계|할인|적립|쿠폰|포인트|금액|사유|훼손|분실|유출|부담|요청|가치|감소|청약|철회|소비자|분쟁|보상|기준|법|저작|copyright|all rights|무단|본 메일|이 메일|발신전용|회신|확인하기|바로가기|자세히|클릭|로그인|회원|가격|주식회사|\(주\)|㈜|미니샵|tbody|thead|수량|옵션|스토어|판매처|상점|사업자|대표|이벤트|혜택|광고|구독|주소|연락처|휴대폰|전화|이메일|받는 ?분|수령|도착|예정|영수증|카드|일시불|할부|입금|계좌|무통장|처리|완료|접수|상태|조회|변경|취소|택배|운송장|송장)/i;
+  const SHORT_BAD = /^(오늘|내일|어제|이번|다음|지난|지금|현재|최근|전체|기타|상품|제품|주문|결제|배송|발송|완료|확인|안내|내역|상세|보기|더보기|클릭|바로가기|로그인|회원|고객|님|씨|가격|금액|합계|할인|적립|쿠폰|포인트|수량|옵션|색상|사이즈|모델|브랜드|판매자|스토어|샵|몰|마켓)$/i;
   function isProductName(s) {
     s = String(s || '').trim();
     if (s.length < 4 || s.length > 90) return false;
+    if (SHORT_BAD.test(s)) return false;
     if (BAD.test(s) || /[<>{}=]/.test(s)) return false;
     if (/(다|요|니다|세요|시오|함|음)\s*[.!?]?$|[.!?]$/.test(s)) return false;          // 문장
     if (/^(의|및|을|를|이|가|은|는|와|과|에|로|으로|또는|단)\s|^[※*\-·•]/.test(s)) return false;   // 조각
@@ -36,6 +38,7 @@
     if (!/[가-힣A-Za-z]{2,}/.test(s)) return false;
     if (/^[\d\s,.:\-\/원개()]+$/.test(s)) return false;
     if ((s.match(/\s/g) || []).length > 14) return false;
+    if (/^[A-Za-z0-9\s,.:\-\/]+$/.test(s) && s.length > 40 && /Get |services|expert|Ready|Architecting|Enterprise/i.test(s)) return false;
     return true;
   }
   // 실제 원본 주소: 지연로딩(data-src), 따옴표 없는 src, //주소, 네이버 메일·이미지 프록시(?src=/url=) 풀기
@@ -263,7 +266,9 @@
     const a = tokens(name); if (!a.length) return null;
     const ok = list.map(x => ({ ...x, s: sim(a, tokens(x.title)) })).filter(x => x.s >= 0.5);
     if (!ok.length) return null;
-    const top = Math.max(...ok.map(x => x.s)); return ok.filter(x => x.s >= top - 0.25).sort((x, y) => x.price - y.price)[0];
+    const top = Math.max(...ok.map(x => x.s)), picked = ok.filter(x => x.s >= top - 0.25).sort((x, y) => x.price - y.price)[0];
+    const score = +picked.s.toFixed(2);
+    return { ...picked, matchScore: score, matchLevel: score >= .8 ? 'high' : score >= .65 ? 'medium' : 'low' };
   }
   const FAILS = new Set(['order', 'shipping', 'delivered', 'sub']);
   // 같은 주문이 주문완료·발송·배송완료 메일로 여러 번 → 하나로. 주문번호 같으면 같은 주문, 없으면 같은 쇼핑몰·이름 5일 이내
