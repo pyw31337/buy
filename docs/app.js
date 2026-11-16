@@ -22,7 +22,7 @@
       const backups = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]'), latest = backups[0];
       if (!latest?.store) return toast('복원할 자동 백업이 없어요');
       if (!confirm(`${new Date(latest.at).toLocaleString('ko-KR')}의 ${latest.reason} 전 상태로 복원할까요?`)) return;
-      snapshot('복원 전'); store = Object.assign({ schema: 2, orders: [], prices: {}, aliases: {}, cats: {}, onboarded: true }, latest.store); save(); render(); toast('최근 자동 백업을 복원했어요');
+      snapshot('복원 전'); store = Object.assign({ schema: 2, orders: [], prices: {}, aliases: {}, cats: {}, ignored: {}, onboarded: true }, latest.store); save(); render(); toast('최근 자동 백업을 복원했어요');
     } catch { toast('자동 백업을 읽지 못했어요'); }
   }
   const kToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
