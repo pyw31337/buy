@@ -281,8 +281,10 @@
   $$('#filter button').forEach(b => b.onclick = () => { $$('#filter button').forEach(e => e.classList.remove('on')); b.classList.add('on'); filter = b.dataset.f; render(); });
   $('#q').oninput = render;
   function merge(orders, prices, fromExt) {
-    if (fromExt) store.orders = store.orders.filter(o => o.source === 'paste');
     orders = LetsBuy.dedupe(orders || []);
+    // 확장 저장소가 비어 있는 상태에서 연결되더라도, 브라우저에 이미 남아 있는
+    // 구매 기록을 0건 응답으로 지우지 않는다. 실제 확장 데이터가 있을 때만 동기화한다.
+    if (fromExt && orders.length) store.orders = store.orders.filter(o => o.source === 'paste');
     const seen = new Set(store.orders.map(o => o.date + o.name));
     for (const o of orders || []) if (!seen.has(o.date + o.name)) { store.orders.push(o); seen.add(o.date + o.name); }
     for (const [k, v] of Object.entries(prices || {})) { const id = p => p.date + '|' + (p.src || p.mall); const m = new Map((store.prices[k] || []).map(p => [id(p), p])); v.forEach(p => m.set(id(p), p)); store.prices[k] = [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1); }
@@ -337,7 +339,7 @@
     if (e.data.type === 'diag') extLog = e.data.diag;
     if (e.data.type === 'hello') markExtensionConnected(e.data.version);
     if (e.data.type === 'thumbProg') { thumbProg = e.data.prog; const el = document.querySelector('.phbar'); if (el) el.outerHTML = photoBar(); bindPhoto(document); }
-    if (e.data.type === 'data') { if (!extInfo) markExtensionConnected(e.data.version); if (e.data.mailStats) store.mailStats = e.data.mailStats; if (e.data.pricedTs) store.pricedTs = e.data.pricedTs; THUMB = {}; for (const [k, v] of Object.entries(e.data.thumbs || {})) THUMB[k] = v.d || v.u; if (e.data.thumbProg) thumbProg = e.data.thumbProg; if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders || [], e.data.prices || {}, true); $('#extState').textContent = `확장 v${e.data.version || extInfo.version} · 주문 ${(e.data.orders || []).length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
+    if (e.data.type === 'data') { const wasEmpty = !store.orders.length; if (!extInfo) markExtensionConnected(e.data.version); if (e.data.mailStats) store.mailStats = e.data.mailStats; if (e.data.pricedTs) store.pricedTs = e.data.pricedTs; THUMB = {}; for (const [k, v] of Object.entries(e.data.thumbs || {})) THUMB[k] = v.d || v.u; if (e.data.thumbProg) thumbProg = e.data.thumbProg; if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders || [], e.data.prices || {}, true); if (wasEmpty && (e.data.orders || []).length && cur === 'home') go('items'); $('#extState').textContent = `확장 v${e.data.version || extInfo.version} · 주문 ${(e.data.orders || []).length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}`; }
     if (e.data.type === 'data') setTimeout(sharedFill, 300);
   });
   // 확장이 먼저 로드돼 hello를 이미 보냈더라도, pull 응답(data)으로 연결을 판정한다.
