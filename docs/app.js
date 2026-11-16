@@ -362,7 +362,7 @@
       [connected, '페이지 연결', connected ? `수집기 v${extInfo.version}` : '확장을 찾는 중'],
       [connected && h.ready !== false, '확장 준비', connected ? (h.ready === false ? '다시 불러오기가 필요해요' : '브리지 응답 확인') : '설치 후 이 페이지를 새로고침'],
       [connected && h.storage !== false, '데이터 저장소', connected ? `확장 주문 ${h.orders ?? '?'}건 · 웹 주문 ${store.orders.length}건` : `웹 주문 ${store.orders.length}건`],
-      [connected && !running, '작업 상태', running ? '수집 진행 중' : (h.pricedAt ? `가격 마지막 수집 ${h.pricedAt}` : '가격 기록 시작 전')]
+      [connected, '작업 상태', running ? '수집 진행 중' : (h.pricedAt ? `가격 마지막 수집 ${h.pricedAt}` : '가격 기록 시작 전')]
     ];
     $('#healthPill').textContent = connected ? '확장 연결됨' : '확장 설치 또는 새로고침 필요';
     $('#healthPill').className = 'pill ' + (connected ? 'on' : '');
