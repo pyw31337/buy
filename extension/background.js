@@ -48,10 +48,15 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
     collectPrices().then(notify); // 가격은 뒤에서 조용히
   });
   if (m.type === 'orderMedia') {
-    queueOrderSave(() => saveOrders(m.orders, [])).then(async n => {
+    queueOrderSave(() => mergeOrderMedia(m.orders || [], m.media || [], m.meta || {})).then(async result => {
       const meta = m.meta || {};
-      await chrome.storage.local.set({ orderPhotoProgress: { state: 'complete', text: `${meta.mall || '주문내역'} 실제 사진 ${meta.matched || 0}개 반영`, at: new Date().toISOString(), ...meta } });
-      reply({ ok: true, orders: n, matched: meta.matched || 0 });
+      const matched = result.matched || 0;
+      await updateOrderPhotoProgress(meta.mall, {
+        state: matched ? 'complete' : 'no-match',
+        text: matched ? `${meta.mall || '주문내역'} 실제 사진 ${matched}개 반영` : `${meta.mall || '주문내역'} 주문 카드를 찾았지만 기존 구매명과 일치한 사진이 없어요.`,
+        ...meta, ...result
+      });
+      reply({ ok: true, orders: result.orders, matched, cards: result.cards });
     }).catch(e => reply({ ok: false, error: String(e?.message || e) }));
     return true;
   }
@@ -72,8 +77,14 @@ async function openOrderPhotoPages() {
     const spec = ORDER_PHOTO_PAGES[i], tab = await chrome.tabs.create({ url: spec.url, active: i === 0 });
     pendingOrderPhotoTabs.set(tab.id, spec.mall); opened.push(spec.mall);
   }
-  await chrome.storage.local.set({ orderPhotoProgress: { state: 'opening', text: '네이버페이·쿠팡 주문내역에서 실제 사진을 확인하고 있어요.', malls: opened, at: new Date().toISOString() } });
+  await chrome.storage.local.set({ orderPhotoProgress: { state: 'opening', text: '네이버페이·쿠팡 주문내역에서 실제 사진을 확인하고 있어요.', malls: opened, status: Object.fromEntries(opened.map(mall => [mall, { state: 'opening' }])), at: new Date().toISOString() } });
   return { ok: true, opened };
+}
+async function updateOrderPhotoProgress(mall, next) {
+  const { orderPhotoProgress = {} } = await chrome.storage.local.get('orderPhotoProgress');
+  const status = { ...(orderPhotoProgress.status || {}), [mall || '주문내역']: { ...next, at: new Date().toISOString() } };
+  const lines = Object.entries(status).map(([name, state]) => `${name}: ${state.text || (state.state === 'opening' ? '확인 중' : '')}`).filter(Boolean);
+  await chrome.storage.local.set({ orderPhotoProgress: { ...orderPhotoProgress, ...next, status, text: lines.join(' · '), at: new Date().toISOString() } });
 }
 chrome.tabs.onUpdated.addListener((tabId, info) => {
   if (info.status !== 'complete' || !pendingOrderPhotoTabs.has(tabId)) return;
@@ -81,9 +92,7 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
   // SPA가 주문 카드와 이미지를 그릴 시간을 준 뒤 현재 보이는 실제 주문을 읽는다.
   setTimeout(() => chrome.tabs.sendMessage(tabId, { type: 'collectOrderMedia' }, result => {
     const error = chrome.runtime.lastError?.message;
-    chrome.storage.local.set({ orderPhotoProgress: error || !result?.ok
-      ? { state: 'needs-login', text: `${mall} 주문내역을 읽지 못했어요. 로그인·주문목록 화면을 확인해 주세요.`, at: new Date().toISOString() }
-      : { state: 'complete', text: `${mall} 주문내역의 실제 사진을 가져왔어요.`, at: new Date().toISOString() } });
+    if (error || !result?.ok) updateOrderPhotoProgress(mall, { state: 'needs-login', text: `${mall} 주문내역을 읽지 못했어요. 로그인·주문목록 화면을 확인해 주세요.` });
   }), 4500);
 });
 
@@ -115,6 +124,33 @@ async function saveOrders(list, mails) {
   await chrome.storage.local.set({ orders, mails: box, mailStats: ms, parser: chrome.runtime.getManifest().version });
   diag('save', true, `mails=${box.length} orders=${orders.length}`);
   return orders.length;
+}
+function mediaMatch(name, text) {
+  const a = new Set(LetsBuy.tokens(name || '')), b = new Set(LetsBuy.tokens(text || ''));
+  if (!a.size || !b.size) return { score: 0, same: 0 };
+  let same = 0; a.forEach(word => { if (b.has(word)) same++; });
+  return { score: same / a.size, same };
+}
+const sameMall = (orderMall, sourceMall) => sourceMall === '네이버페이' ? /네이버/.test(orderMall || '') : String(orderMall || '') === sourceMall;
+const enoughMedia = match => match && (match.score >= .65 || (match.same >= 2 && match.score >= .45));
+// 주문 목록의 DOM은 플랫폼마다 계속 바뀐다. 행 파서 결과가 0건이어도 저장된 메일 구매명과
+// 현재 보이는 주문 카드의 이름을 대조해 이미지만 보강한다.
+async function mergeOrderMedia(list, media, meta) {
+  if (list.length) await saveOrders(list, []);
+  const st = await chrome.storage.local.get('orders');
+  const cards = (media || []).filter(item => item && item.img && item.text && item.isOrder !== false);
+  let matched = 0;
+  const orders = (st.orders || []).map(order => {
+    if (order.img || !sameMall(order.mall, meta.mall)) return order;
+    const best = cards.map(card => ({ card, ...mediaMatch(order.name, card.text) })).sort((a, b) => b.score - a.score || b.same - a.same)[0];
+    if (!enoughMedia(best)) return order;
+    matched++;
+    return { ...order, img: best.card.img, url: order.url || best.card.url || undefined, photoSource: 'orderpage' };
+  });
+  const saved = LetsBuy.dedupe(orders);
+  await chrome.storage.local.set({ orders: saved, parser: chrome.runtime.getManifest().version });
+  diag('order-media', true, `${meta.mall || 'unknown'} cards=${cards.length} parsed=${list.length} matched=${matched}`);
+  return { orders: saved.length, matched, cards: cards.length };
 }
 // 확장을 새로 고치거나 업데이트하면 보관한 메일로 자동 재분석한다.
 // 사진 검색은 사용자가 "사진 채우기"를 눌렀을 때만 수행한다.
