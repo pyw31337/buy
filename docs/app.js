@@ -263,18 +263,19 @@
   function photoBar() {
     if (demo || !store.orders.length) return '';
     const items = LetsBuy.analyze(raw().orders, raw().today, raw().aliases, { all: true }), have = items.filter(imgOf).length, pc = items.length ? Math.round(have / items.length * 100) : 0, p = thumbProg;
-    const run = p && p.running;
-    const problem = p?.error;
+    const stale = !!(p?.running && p?.at && Date.now() - Date.parse(p.at) > 90_000);
+    const run = p && p.running && !stale;
+    const problem = p?.error || (stale ? '자동 재개가 멈췄어요' : '');
     const result = !run && Number.isFinite(p?.searched) ? `<small class="phresult">검색 ${p.searched}회 · 새 사진 ${p.found || 0}개</small>` : '';
     const orderState = orderPhotoProgress?.text ? `<small class="phorder">${esc(orderPhotoProgress.text)}</small>` : '';
-    const controls = `<button class="btn sm" id="orderPhotos">전체 실제 주문 사진</button><button class="btn sm ghost" id="fillImg">${problem ? '검색 다시 시도' : '검색으로 보강'}</button>`;
-    return `<div class="phbar"><span class="phl">${svg('image', 16)} 사진 <b>${have}/${items.length}</b></span><span class="phm"><i style="width:${run ? Math.round(p.done / (p.total || 1) * 100) : pc}%"></i></span>${run ? `<small>찾는 중 ${p.done}/${p.total}${p.queued ? ' · 다음 묶음 자동 진행' : ''}</small>` : controls}${result}${orderState}${problem ? `<small class="pherr" title="${esc(problem)}">중단됨 · 다시 시도해 주세요</small>` : ''}</div>`;
+    const controls = `<button class="btn sm" id="orderPhotos">전체 실제 주문 사진</button><button class="btn sm ghost" id="fillImg" data-resume="${stale ? '1' : '0'}">${stale ? '중단된 검색 이어서' : problem ? '검색 다시 시도' : '검색으로 보강'}</button>`;
+    return `<div class="phbar"><span class="phl">${svg('image', 16)} 사진 <b>${have}/${items.length}</b></span><span class="phm"><i style="width:${run ? Math.round(p.done / (p.total || 1) * 100) : pc}%"></i></span>${run ? `<small>찾는 중 ${p.done}/${p.total}${p.queued ? ' · 다음 묶음 자동 진행' : ''}</small>` : controls}${result}${orderState}${problem ? `<small class="pherr" title="${esc(problem)}">${stale ? '자동 재개가 멈췄어요 · 이어서 실행할 수 있어요' : '중단됨 · 다시 시도해 주세요'}</small>` : ''}</div>`;
   }
-  function startPhotoFill() {
+  function startPhotoFill(resume = false) {
     if (!extensionIsCurrent()) return toast(extInfo ? `확장 v${extInfo.version}은(는) 오래됐어요. v${REQUIRED_EXTENSION_VERSION}으로 업데이트해 주세요.` : '확장 연결을 먼저 확인해 주세요.');
-    thumbProg = { running: true, done: 0, total: 1 };
+    thumbProg = resume ? { ...(thumbProg || {}), running: true, error: null } : { running: true, done: 0, total: 1 };
     refreshAll();
-    window.postMessage({ app: 'letsbuy-web', type: 'fillImages', force: true }, location.origin);
+    window.postMessage({ app: 'letsbuy-web', type: 'fillImages', force: !resume }, location.origin);
   }
   function bindPhoto(el) {
     const b = el && el.querySelector('#fillImg');
@@ -286,7 +287,7 @@
     };
     if (!b) return;
     b.onclick = () => {
-      if (extensionIsCurrent()) return startPhotoFill();
+      if (extensionIsCurrent()) return startPhotoFill(b.dataset.resume === '1');
       if (extInfo) return toast(`확장 v${extInfo.version}은(는) 오래됐어요. v${REQUIRED_EXTENSION_VERSION}으로 업데이트해 주세요.`);
       // 설치되어 있어도 content script의 최초 hello가 페이지보다 먼저 오면 놓칠 수 있다.
       // 여기서 다시 연결을 요청해, 사용자가 두 번 눌러야 하는 상황을 없앤다.
@@ -294,7 +295,7 @@
       b.textContent = '확장 연결 확인 중…';
       requestExtension();
       setTimeout(() => {
-        if (extensionIsCurrent()) return startPhotoFill();
+        if (extensionIsCurrent()) return startPhotoFill(b.dataset.resume === '1');
         b.disabled = false;
         b.textContent = '사진 채우기';
         toast(extInfo ? `확장 v${extInfo.version}을(를) v${REQUIRED_EXTENSION_VERSION}으로 업데이트해 주세요.` : '확장 연결을 찾지 못했어요. 확장 관리 화면에서 렛츠바이 수집기가 켜져 있는지 확인해 주세요.');
@@ -364,7 +365,7 @@
   go(store.orders.length && location.hash !== '#home' ? (['prod', 'items', 'dash'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'prod') : 'home');
   $('#demo').onclick = () => { demo = true; render(); go('prod'); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
-  const REQUIRED_EXTENSION_VERSION = '0.17.0';
+  const REQUIRED_EXTENSION_VERSION = '0.17.1';
   let extInfo = null, extLog = [], extProbe = null, extHealth = null, collectProgress = null, orderPhotoProgress = null, extSettings = { shareThumbs: false };
   function versionAtLeast(actual, required) {
     const a = String(actual || '').split('.').map(n => Number(n) || 0), b = String(required).split('.').map(n => Number(n) || 0);

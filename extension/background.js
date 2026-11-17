@@ -4,7 +4,18 @@ const todayStr = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 
 
 chrome.runtime.onInstalled.addListener(() => setup());
 chrome.runtime.onStartup.addListener(() => setup());
-function setup() { chrome.alarms.create('daily', { periodInMinutes: 6 * 60, delayInMinutes: 1 }); }
+function setup() {
+  chrome.alarms.create('daily', { periodInMinutes: 6 * 60, delayInMinutes: 1 });
+  // 업데이트·브라우저 재시작 뒤에도 남아 있는 사진 작업을 반드시 깨운다.
+  resumeThumbJob();
+}
+async function resumeThumbJob() {
+  const { thumbJob, thumbProg } = await chrome.storage.local.get(['thumbJob', 'thumbProg']);
+  if (!thumbJob?.keys?.length || Number(thumbJob.cursor) >= Number(thumbJob.total || thumbJob.keys.length)) return;
+  await chrome.storage.local.set({ thumbProg: { ...(thumbProg || {}), done: Number(thumbJob.cursor) || 0, total: Number(thumbJob.total) || thumbJob.keys.length, running: true, queued: true, resumedAt: new Date().toISOString(), error: null } });
+  // 알람은 서비스 워커가 쉬어도 다시 깨운다. 브라우저가 허용하는 최소 지연을 사용한다.
+  chrome.alarms.create('thumb-resume', { when: Date.now() + 30_000 });
+}
 // 6시간마다 깨어나서 오늘 아직 안 했으면 실행 (브라우저가 꺼져 있던 날도 다음 실행 때 따라잡음)
 chrome.alarms.onAlarm.addListener(async a => {
   if (a.name === 'daily') {
