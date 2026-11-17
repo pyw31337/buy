@@ -213,7 +213,7 @@ async function toWebp(url) {
   } finally { clearTimeout(t); }
 }
 const b64 = async b => { const a = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < a.length; i += 8192) s += String.fromCharCode.apply(null, a.subarray(i, i + 8192)); return 'data:image/webp;base64,' + btoa(s); };
-const THUMB_BATCH_SIZE = 12, THUMB_CONCURRENCY = 3, THUMB_ALARM = 'thumb-resume';
+const THUMB_BATCH_SIZE = 12, THUMB_CONCURRENCY = 3, THUMB_ALARM = 'thumb-resume', SOURCE_FAILURE_LIMIT = 3;
 async function thumbSearchText(url) {
   const c = new AbortController(), t = setTimeout(() => c.abort(), 5500);
   try {
@@ -245,13 +245,16 @@ async function fillImages(force) {
     let job = !force && st.thumbJob?.keys?.length ? st.thumbJob : null;
     if (!job) {
       const todo = items.filter(it => !thumbs[it.key] && (force || !miss[it.key] || Date.parse(today) - Date.parse(miss[it.key]) > 7 * 864e5));
-      job = { keys: todo.map(it => it.key), cursor: 0, total: todo.length, startedAt: new Date().toISOString() };
+      job = { keys: todo.map(it => it.key), cursor: 0, total: todo.length, found: 0, searched: 0, sources: {}, startedAt: new Date().toISOString() };
       await chrome.alarms.clear(THUMB_ALARM);
     }
+    job.found = Number(job.found) || 0;
+    job.searched = Number(job.searched) || 0;
+    job.sources = job.sources && typeof job.sources === 'object' ? job.sources : {};
     const byKey = new Map(items.map(it => [it.key, it]));
     const batchKeys = job.keys.slice(job.cursor, job.cursor + THUMB_BATCH_SIZE);
     const progress = async (done, extra = {}) => {
-      lastProgress = { done, total: job.total, have: Object.keys(thumbs).length, all: items.length, running: done < job.total, at: new Date().toISOString(), ...extra };
+      lastProgress = { done, total: job.total, have: Object.keys(thumbs).length, all: items.length, found: job.found, searched: job.searched, sources: job.sources, running: done < job.total, at: new Date().toISOString(), ...extra };
       await chrome.storage.local.set({ thumbProg: lastProgress });
     };
     if (!batchKeys.length) {
@@ -259,7 +262,8 @@ async function fillImages(force) {
       return { got: 0, total: job.total };
     }
     await progress(job.cursor, { queued: job.cursor > 0 });
-    const off = {}; let done = job.cursor, got = 0, searched = 0, next = 0;
+    const off = {}; let done = job.cursor, batchGot = 0, batchSearched = 0, next = 0;
+    const source = name => job.sources[name] || (job.sources[name] = { tried: 0, success: 0, blocked: 0, network: 0, noImage: 0, image: 0, skipped: 0 });
     const processOne = async key => {
       const it = byKey.get(key); if (!it || thumbs[key]) return;
       const cands = (prices[key] || []).slice().reverse().map(p => p.img).filter(Boolean).map(u => ({ u, from: '가격 기록' }));
@@ -271,21 +275,30 @@ async function fillImages(force) {
           if ((r.have || []).includes(hash)) thumbs[key] = { u: LetsBuy.THUMBS + '/t/' + hash + '.webp', from: '공유' };
         } catch (e) { diag('thumb-has', false, e.message); }
       }
-      if (thumbs[key]) { got++; return; }
-      for (const c of cands) { try { blob = await toWebp(c.u); from = c.from; break; } catch {} }
+      if (thumbs[key]) { batchGot++; job.found++; return; }
+      for (const c of cands) {
+        try { blob = await toWebp(c.u); from = c.from; source('가격 기록').success++; break; }
+        catch { source('가격 기록').image++; }
+      }
       const q = encodeURIComponent(LetsBuy.tokens(it.name).slice(0, 5).join(' ') || it.name);
       for (const s of imageSourcesFor(it)) {
-        if (blob || off[s.name] >= 3) break;
+        if (blob) break;
+        const stat = source(s.name);
+        // 한 검색원이 실제로 막혀도 다른 검색원은 끝까지 시도한다.
+        if (off[s.name] >= SOURCE_FAILURE_LIMIT) { stat.skipped++; continue; }
+        let h = '', u = '';
         try {
-          searched++; const h = await thumbSearchText(s.url(q));
-          if (!h || blocked(h)) throw new Error('막힘');
-          const u = s.pick(h); if (!u) throw new Error('사진 없음');
-          blob = await toWebp(u); from = s.name; off[s.name] = 0;
-        } catch { off[s.name] = (off[s.name] || 0) + 1; }
+          stat.tried++; batchSearched++; job.searched++; h = await thumbSearchText(s.url(q));
+        } catch { stat.network++; off[s.name] = (off[s.name] || 0) + 1; continue; }
+        if (!h || blocked(h)) { stat.blocked++; off[s.name] = (off[s.name] || 0) + 1; continue; }
+        try { u = s.pick(h); } catch { u = ''; }
+        if (!u) { stat.noImage++; continue; }
+        try { blob = await toWebp(u); from = s.name; stat.success++; off[s.name] = 0; }
+        catch { stat.image++; }
         await sleep(140 + Math.random() * 120);
       }
       if (blob) {
-        thumbs[key] = { d: await b64(blob), from }; got++;
+        thumbs[key] = { d: await b64(blob), from }; batchGot++; job.found++;
         if (st.settings?.shareThumbs && hash) fetch(LetsBuy.THUMBS + '/t/' + hash + '.webp', { method: 'PUT', headers: { 'Content-Type': 'image/webp' }, body: blob }).catch(() => {});
       } else miss[key] = today;
     };
@@ -302,8 +315,8 @@ async function fillImages(force) {
     await chrome.storage.local.set({ thumbs, thumbMiss: miss, thumbJob: more ? job : null });
     await progress(done, { running: more, queued: more });
     if (more) chrome.alarms.create(THUMB_ALARM, { when: Date.now() + 15_000 });
-    diag('thumbs', true, `got=${got}/${batchKeys.length} done=${done}/${job.total} have=${Object.keys(thumbs).length}/${items.length} searched=${searched} queued=${more}`);
-    return { got, done, total: job.total, queued: more };
+    diag('thumbs', true, `got=${batchGot}/${batchKeys.length} done=${done}/${job.total} have=${Object.keys(thumbs).length}/${items.length} searched=${batchSearched} queued=${more} sources=${JSON.stringify(job.sources)}`);
+    return { got: batchGot, done, total: job.total, queued: more, searched: job.searched, sources: job.sources };
   } catch (e) {
     const message = String(e?.message || e || '알 수 없는 오류').slice(0, 120);
     diag('thumbs', false, message);

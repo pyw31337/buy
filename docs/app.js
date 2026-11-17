@@ -265,7 +265,8 @@
     const items = LetsBuy.analyze(raw().orders, raw().today, raw().aliases, { all: true }), have = items.filter(imgOf).length, pc = items.length ? Math.round(have / items.length * 100) : 0, p = thumbProg;
     const run = p && p.running;
     const problem = p?.error;
-    return `<div class="phbar"><span class="phl">${svg('image', 16)} 사진 <b>${have}/${items.length}</b></span><span class="phm"><i style="width:${run ? Math.round(p.done / (p.total || 1) * 100) : pc}%"></i></span>${run ? `<small>찾는 중 ${p.done}/${p.total}${p.queued ? ' · 다음 묶음 자동 진행' : ''}</small>` : `<button class="btn sm" id="fillImg">${problem ? '다시 시도' : '사진 채우기'}</button>`}${problem ? `<small class="pherr" title="${esc(problem)}">중단됨 · 다시 시도해 주세요</small>` : ''}</div>`;
+    const result = !run && Number.isFinite(p?.searched) ? `<small class="phresult">검색 ${p.searched}회 · 새 사진 ${p.found || 0}개</small>` : '';
+    return `<div class="phbar"><span class="phl">${svg('image', 16)} 사진 <b>${have}/${items.length}</b></span><span class="phm"><i style="width:${run ? Math.round(p.done / (p.total || 1) * 100) : pc}%"></i></span>${run ? `<small>찾는 중 ${p.done}/${p.total}${p.queued ? ' · 다음 묶음 자동 진행' : ''}</small>` : `<button class="btn sm" id="fillImg">${problem ? '다시 시도' : '사진 채우기'}</button>`}${result}${problem ? `<small class="pherr" title="${esc(problem)}">중단됨 · 다시 시도해 주세요</small>` : ''}</div>`;
   }
   function startPhotoFill() {
     if (!extensionIsCurrent()) return toast(extInfo ? `확장 v${extInfo.version}은(는) 오래됐어요. v${REQUIRED_EXTENSION_VERSION}으로 업데이트해 주세요.` : '확장 연결을 먼저 확인해 주세요.');
@@ -355,7 +356,7 @@
   go(store.orders.length && location.hash !== '#home' ? (['prod', 'items', 'dash'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'prod') : 'home');
   $('#demo').onclick = () => { demo = true; render(); go('prod'); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
-  const REQUIRED_EXTENSION_VERSION = '0.15.1';
+  const REQUIRED_EXTENSION_VERSION = '0.15.2';
   let extInfo = null, extLog = [], extProbe = null, extHealth = null, collectProgress = null, extSettings = { shareThumbs: false };
   function versionAtLeast(actual, required) {
     const a = String(actual || '').split('.').map(n => Number(n) || 0), b = String(required).split('.').map(n => Number(n) || 0);
