@@ -1,6 +1,6 @@
 # 렛츠바이 인수인계 (HANDOFF)
 
-> 마지막 갱신: 2026-11-16 (KST) · 현재 버전 **v0.15.0** · 사이트 https://pyw31337.github.io/buy/
+> 마지막 갱신: 2026-11-17 (KST) · 현재 버전 **v0.15.1** · 사이트 https://pyw31337.github.io/buy/
 
 ## 1. 제품과 사용자
 - **목표:** 주문 메일에서 "자주 사는 물건"을 찾아 **다시 살 때**와 **지금 최저가**를 알려주는 개인 구매 비서. 데이터는 사용자의 브라우저에만 저장.
@@ -52,7 +52,7 @@
 | docs/products.js | '살 때' 카드와 제품 상세, 판단 model() |
 | docs/dash.js, insights.js | 내 소비 분석과 카테고리 사전 |
 | docs/brand/, favicon.ico, manifest.webmanifest, og-image.png | 브랜드. 아이콘은 오너 제공 가방 이미지 기반 (v0.14.2–0.14.3) |
-| docs/letsbuy-extension-v0.15.0.zip | v0.15.0 확장 릴리스 파일 |
+| docs/letsbuy-extension-v0.15.1.zip | v0.15.1 확장 릴리스 파일 |
 | extension/ | MV3: background(수집, 가격, 사진), naver-mail, gmail, bridge, order-list, price-page, diag |
 | worker/ | 썸네일 Worker 사본 |
 | test/ | node 테스트. fixtures는 가짜 데이터만 |
@@ -61,7 +61,7 @@
 ```bash
 npm test                      # 반드시 0으로 끝나야 함
 cp docs/core.js extension/core.js
-python3 -c "import shutil;shutil.make_archive('docs/letsbuy-extension-v0.15.0','zip','extension')"
+python3 -c "import shutil;shutil.make_archive('docs/letsbuy-extension-v0.15.1','zip','extension')"
 git -c user.name=pyw31337 -c user.email=pyw31337@users.noreply.github.com commit -am "vX.Y.Z: ..."
 git push                      # main/docs → GitHub Pages가 1–2분 안에 자동 배포
 gh release create vX.Y.Z docs/letsbuy-extension-vX.Y.Z.zip -t vX.Y.Z -n "..."
@@ -97,6 +97,7 @@ gh release create vX.Y.Z docs/letsbuy-extension-vX.Y.Z.zip -t vX.Y.Z -n "..."
 ## 8. 버전 기록과 교훈
 | 버전 | 핵심 |
 |---|---|
+| v0.15.1 | 사진 채우기를 12개 묶음·최대 3개 동시 처리로 전환하고, 검색·이미지 요청 시간 제한, 자동 재개 대기열, 오류 표시를 추가. |
 | v0.1 | 웹, 데모, 메일 붙여넣기, 네이버 메일 확장, 다나와 가격 |
 | v0.2 | 수집 다중 경로와 재시도, 진단, 주문목록 버튼, 유사 품목 묶기, Ollama 선택 |
 | v0.3 | 원클릭 수집, Gmail, 단순 UI |

@@ -7,9 +7,13 @@ chrome.runtime.onStartup.addListener(() => setup());
 function setup() { chrome.alarms.create('daily', { periodInMinutes: 6 * 60, delayInMinutes: 1 }); }
 // 6시간마다 깨어나서 오늘 아직 안 했으면 실행 (브라우저가 꺼져 있던 날도 다음 실행 때 따라잡음)
 chrome.alarms.onAlarm.addListener(async a => {
-  if (a.name !== 'daily') return;
-  const { pricedAt } = await chrome.storage.local.get('pricedAt');
-  if (pricedAt !== todayStr()) { await collectPrices(); await notify(); }
+  if (a.name === 'daily') {
+    const { pricedAt } = await chrome.storage.local.get('pricedAt');
+    if (pricedAt !== todayStr()) { await collectPrices(); await notify(); }
+    return;
+  }
+  // 긴 사진 채우기는 MV3 서비스 워커가 중간에 종료돼도 다음 묶음부터 이어 간다.
+  if (a.name === 'thumb-resume') await fillImages(false);
 });
 // 아이콘 클릭(또는 Alt+Shift+L) 한 번 = 지금 탭에서 전부 수집
 const WEB = 'https://pyw31337.github.io/buy/';
@@ -187,7 +191,7 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
   return true;
 });
 
-// ── 사진 채우기: 가격 수집과 별개로, 수집 직후 바로 실행. 공유 캐시 → 메일 사진 → 가격 기록 사진 → 쇼핑몰 검색 순
+// ── 사진 채우기: 사용자가 눌렀을 때만 실행. 메일 사진 → 가격 기록 사진 → 쇼핑몰 검색 순
 const IMG_SEARCH = [
   { name: '네이버', url: q => 'https://search.shopping.naver.com/search/all?query=' + q, pick: h => (LetsBuy.parseSearch('네이버', h).find(x => x.img) || {}).img || LetsBuy.findImg('네이버', h) },
   { name: '다나와', url: q => 'https://search.danawa.com/dsearch.php?query=' + q, pick: h => LetsBuy.findImg('다나와', h) },
@@ -198,7 +202,7 @@ const IMG_SEARCH = [
 ];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function toWebp(url) {
-  const c = new AbortController(); const t = setTimeout(() => c.abort(), 12000);
+  const c = new AbortController(); const t = setTimeout(() => c.abort(), 6000);
   try {
     const r = await fetch(url, { signal: c.signal, referrerPolicy: 'no-referrer', credentials: 'omit' }); if (!r.ok) throw new Error('HTTP ' + r.status);
     const bm = await createImageBitmap(await r.blob()); if (bm.width < 40 || bm.height < 40) throw new Error('작음');
@@ -209,49 +213,102 @@ async function toWebp(url) {
   } finally { clearTimeout(t); }
 }
 const b64 = async b => { const a = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < a.length; i += 8192) s += String.fromCharCode.apply(null, a.subarray(i, i + 8192)); return 'data:image/webp;base64,' + btoa(s); };
+const THUMB_BATCH_SIZE = 12, THUMB_CONCURRENCY = 3, THUMB_ALARM = 'thumb-resume';
+async function thumbSearchText(url) {
+  const c = new AbortController(), t = setTimeout(() => c.abort(), 5500);
+  try {
+    const r = await fetch(url, { credentials: 'include', cache: 'no-store', signal: c.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.text();
+  } finally { clearTimeout(t); }
+}
+function imageSourcesFor(item) {
+  const mall = String(item.malls?.[0] || item.mall || '');
+  const primary = /네이버|스마트/.test(mall) ? '네이버'
+    : /쿠팡/.test(mall) ? '쿠팡'
+    : /11번가/.test(mall) ? '11번가'
+    : /G마켓|옥션/.test(mall) ? 'G마켓'
+    : /컬리/.test(mall) ? '컬리' : '네이버';
+  return [IMG_SEARCH.find(s => s.name === primary), ...IMG_SEARCH.filter(s => s.name !== primary)].filter(Boolean).slice(0, 3);
+}
 let filling = false;
 async function fillImages(force) {
   if (filling) return { busy: true }; filling = true;
+  let lastProgress = null, priorProgress = null;
   try {
-    const st = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'thumbs', 'thumbMiss', 'settings']);
+    const st = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'thumbs', 'thumbMiss', 'settings', 'thumbJob', 'thumbProg']);
+    priorProgress = st.thumbProg || null;
     const thumbs = st.thumbs || {}, miss = st.thumbMiss || {}, today = todayStr(), prices = st.prices || {};
     const items = LetsBuy.analyze(st.orders || [], today, st.aliases || {}, { all: true }).sort((a, b) => b.count - a.count);
-    const todo = items.filter(it => !thumbs[it.key] && (force || !miss[it.key] || Date.parse(today) - Date.parse(miss[it.key]) > 7 * 864e5));
-    const prog = async (done, extra = {}) => chrome.storage.local.set({ thumbProg: { done, total: todo.length, have: Object.keys(thumbs).length, all: items.length, running: done < todo.length, at: new Date().toISOString(), ...extra } });
-    await prog(0);
-    // 1) 사용자가 허용했을 때만 공유 캐시를 확인한다.
-    const hs = {}; for (const it of todo) hs[it.key] = await LetsBuy.thumbHash(it.key);
-    const keys = todo.map(it => it.key);
-    if (st.settings?.shareThumbs) for (let i = 0; i < keys.length; i += 200) {
-      try { const r = await (await fetch(LetsBuy.THUMBS + '/has?h=' + keys.slice(i, i + 200).map(k => hs[k]).join(','))).json(); const have = new Set(r.have || []); keys.slice(i, i + 200).forEach(k => { if (have.has(hs[k])) thumbs[k] = { u: LetsBuy.THUMBS + '/t/' + hs[k] + '.webp', from: '공유' }; }); } catch (e) { diag('thumb-has', false, e.message); }
+    // 주문 메일에 이미 담긴 사진은 다시 검색하지 않는다.
+    for (const it of items) if (!thumbs[it.key] && it.img) thumbs[it.key] = { u: it.img, from: '메일' };
+    let job = !force && st.thumbJob?.keys?.length ? st.thumbJob : null;
+    if (!job) {
+      const todo = items.filter(it => !thumbs[it.key] && (force || !miss[it.key] || Date.parse(today) - Date.parse(miss[it.key]) > 7 * 864e5));
+      job = { keys: todo.map(it => it.key), cursor: 0, total: todo.length, startedAt: new Date().toISOString() };
+      await chrome.alarms.clear(THUMB_ALARM);
     }
-    await chrome.storage.local.set({ thumbs });
-    const off = {}; let n = 0, got = 0, searched = 0;
-    for (const it of todo) {
-      n++; if (thumbs[it.key]) { got++; if (n % 5 === 0) await prog(n); continue; }
-      const cands = [it.img, ...(prices[it.key] || []).slice().reverse().map(p => p.img)].filter(Boolean).map(u => ({ u, from: '메일' }));
-      let blob = null, from = '';
+    const byKey = new Map(items.map(it => [it.key, it]));
+    const batchKeys = job.keys.slice(job.cursor, job.cursor + THUMB_BATCH_SIZE);
+    const progress = async (done, extra = {}) => {
+      lastProgress = { done, total: job.total, have: Object.keys(thumbs).length, all: items.length, running: done < job.total, at: new Date().toISOString(), ...extra };
+      await chrome.storage.local.set({ thumbProg: lastProgress });
+    };
+    if (!batchKeys.length) {
+      await chrome.storage.local.set({ thumbs, thumbJob: null }); await progress(job.total, { running: false });
+      return { got: 0, total: job.total };
+    }
+    await progress(job.cursor, { queued: job.cursor > 0 });
+    const off = {}; let done = job.cursor, got = 0, searched = 0, next = 0;
+    const processOne = async key => {
+      const it = byKey.get(key); if (!it || thumbs[key]) return;
+      const cands = (prices[key] || []).slice().reverse().map(p => p.img).filter(Boolean).map(u => ({ u, from: '가격 기록' }));
+      let blob = null, from = '', hash = '';
+      if (st.settings?.shareThumbs) {
+        try {
+          hash = await LetsBuy.thumbHash(key);
+          const r = await fetch(LetsBuy.THUMBS + '/has?h=' + hash).then(x => x.ok ? x.json() : { have: [] });
+          if ((r.have || []).includes(hash)) thumbs[key] = { u: LetsBuy.THUMBS + '/t/' + hash + '.webp', from: '공유' };
+        } catch (e) { diag('thumb-has', false, e.message); }
+      }
+      if (thumbs[key]) { got++; return; }
       for (const c of cands) { try { blob = await toWebp(c.u); from = c.from; break; } catch {} }
       const q = encodeURIComponent(LetsBuy.tokens(it.name).slice(0, 5).join(' ') || it.name);
-      for (const s of IMG_SEARCH) {
-        if (blob) break; if (off[s.name] >= 3) continue; // 연속 3번 막히면 그 쇼핑몰은 이번엔 쉼
+      for (const s of imageSourcesFor(it)) {
+        if (blob || off[s.name] >= 3) break;
         try {
-          searched++; const r = await fetch(s.url(q), { credentials: 'include' }); const h = r.ok ? await r.text() : '';
+          searched++; const h = await thumbSearchText(s.url(q));
           if (!h || blocked(h)) throw new Error('막힘');
           const u = s.pick(h); if (!u) throw new Error('사진 없음');
           blob = await toWebp(u); from = s.name; off[s.name] = 0;
-        } catch (e) { off[s.name] = (off[s.name] || 0) + 1; }
-        await sleep(1200 + Math.random() * 800);
+        } catch { off[s.name] = (off[s.name] || 0) + 1; }
+        await sleep(140 + Math.random() * 120);
       }
       if (blob) {
-        thumbs[it.key] = { d: await b64(blob), from }; got++;
-        if (st.settings?.shareThumbs) fetch(LetsBuy.THUMBS + '/t/' + hs[it.key] + '.webp', { method: 'PUT', headers: { 'Content-Type': 'image/webp' }, body: blob }).catch(() => {}); // 제품명 해시+사진만 공유
-      } else miss[it.key] = today;
-      await chrome.storage.local.set({ thumbs, thumbMiss: miss }); await prog(n);
-    }
-    await prog(todo.length, { running: false, have: Object.keys(thumbs).length });
-    diag('thumbs', true, `got=${got}/${todo.length} have=${Object.keys(thumbs).length}/${items.length} searched=${searched} off=${JSON.stringify(off)}`);
-    return { got, total: todo.length };
+        thumbs[key] = { d: await b64(blob), from }; got++;
+        if (st.settings?.shareThumbs && hash) fetch(LetsBuy.THUMBS + '/t/' + hash + '.webp', { method: 'PUT', headers: { 'Content-Type': 'image/webp' }, body: blob }).catch(() => {});
+      } else miss[key] = today;
+    };
+    const worker = async () => {
+      while (true) {
+        const key = batchKeys[next++]; if (!key) return;
+        try { await processOne(key); } catch (e) { miss[key] = today; diag('thumb-item', false, e.message); }
+        done++; await progress(done, { queued: done < job.total });
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(THUMB_CONCURRENCY, batchKeys.length) }, worker));
+    job.cursor = done;
+    const more = done < job.total;
+    await chrome.storage.local.set({ thumbs, thumbMiss: miss, thumbJob: more ? job : null });
+    await progress(done, { running: more, queued: more });
+    if (more) chrome.alarms.create(THUMB_ALARM, { when: Date.now() + 15_000 });
+    diag('thumbs', true, `got=${got}/${batchKeys.length} done=${done}/${job.total} have=${Object.keys(thumbs).length}/${items.length} searched=${searched} queued=${more}`);
+    return { got, done, total: job.total, queued: more };
+  } catch (e) {
+    const message = String(e?.message || e || '알 수 없는 오류').slice(0, 120);
+    diag('thumbs', false, message);
+    await chrome.storage.local.set({ thumbProg: { ...(lastProgress || priorProgress || {}), running: false, error: message, at: new Date().toISOString() } });
+    return { error: message };
   } finally { filling = false; }
 }
 chrome.runtime.onMessage.addListener((m, _s, reply) => { if (m && m.type === 'fillImages') { fillImages(m.force).then(reply); return true; } });
