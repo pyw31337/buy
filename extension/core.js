@@ -286,9 +286,9 @@
     const bo = orders.some(o => o && o.status) ? backouts(orders) : null; if (bo) orders = bo.kept;
     for (const o of [...orders].filter(o => o && o.date && isProductName(clean(o.name))).sort((a, b) => a.date < b.date ? -1 : 1)) {
       const k = o.orderNo ? o.orderNo + '|' + o.name : null;
-      if (k && byNo.has(k)) { const p = byNo.get(k); p.img = p.img || o.img; continue; }
+      if (k && byNo.has(k)) { const p = byNo.get(k); p.img = p.img || o.img; p.url = p.url || o.url; continue; }
       const near = !k && out.find(p => p.name === o.name && p.mall === o.mall && Math.abs(day(p.date) - day(o.date)) <= 5);
-      if (near) { near.img = near.img || o.img; continue; }
+      if (near) { near.img = near.img || o.img; near.url = near.url || o.url; continue; }
       out.push({ ...o }); if (k) byNo.set(k, out[out.length - 1]);
     }
     return out;
@@ -330,7 +330,7 @@
     for (const { key, list, alias, forced } of group(dedupe(orders), aliases)) {
       list.sort((a, b) => a.date < b.date ? -1 : 1);
       const dates = [...new Set(list.map(o => o.date))].sort();
-      if (dates.length < 2) { if (all && dates.length) { const prices = list.filter(o => o.price).map(o => ({ date: o.date, price: Math.round(o.price / (o.qty || 1)), mall: o.mall })); out.push({ key, name: forced ? alias : list[list.length - 1].name, count: 1, dates, gaps: [], avgGap: 0, cv: 0, type: '1회', confidence: 0, last: dates[0], nextDate: null, daysLeft: 9999, status: '1회 구매', prices, malls: [...new Set(list.map(o => o.mall))], img: (list.slice().reverse().find(o => o.img) || {}).img || null, names: [...new Set(list.map(o => o.name))] }); } continue; }
+      if (dates.length < 2) { if (all && dates.length) { const prices = list.filter(o => o.price).map(o => ({ date: o.date, price: Math.round(o.price / (o.qty || 1)), mall: o.mall })), latest = list.slice().reverse().find(o => o.img || o.url) || {}; out.push({ key, name: forced ? alias : list[list.length - 1].name, count: 1, dates, gaps: [], avgGap: 0, cv: 0, type: '1회', confidence: 0, last: dates[0], nextDate: null, daysLeft: 9999, status: '1회 구매', prices, malls: [...new Set(list.map(o => o.mall))], img: latest.img || null, url: latest.url || null, names: [...new Set(list.map(o => o.name))] }); } continue; }
       const gaps = dates.slice(1).map((d, i) => day(d) - day(dates[i]));
       const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
       const sd = Math.sqrt(gaps.reduce((a, g) => a + (g - avg) ** 2, 0) / gaps.length);
@@ -351,7 +351,8 @@
       const dLeft = day(nextDate) - day(today);
       const prices = list.filter(o => o.price).map(o => ({ date: o.date, price: Math.round(o.price / (o.qty || 1)), mall: o.mall }));
       const status = dLeft < 0 ? '지금 살 때' : dLeft <= 14 ? '곧 필요' : '여유';
-      out.push({ key, name: forced ? alias : list[list.length - 1].name, count: dates.length, dates, gaps, avgGap: Math.round(avg), cv: +cv.toFixed(2), type, confidence: +confidence.toFixed(2), last, nextDate, daysLeft: dLeft, status, prices, malls: [...new Set(list.map(o => o.mall))], img: (list.slice().reverse().find(o => o.img) || {}).img || null, names: [...new Set(list.map(o => o.name))] });
+      const latest = list.slice().reverse().find(o => o.img || o.url) || {};
+      out.push({ key, name: forced ? alias : list[list.length - 1].name, count: dates.length, dates, gaps, avgGap: Math.round(avg), cv: +cv.toFixed(2), type, confidence: +confidence.toFixed(2), last, nextDate, daysLeft: dLeft, status, prices, malls: [...new Set(list.map(o => o.mall))], img: latest.img || null, url: latest.url || null, names: [...new Set(list.map(o => o.name))] });
     }
     return out.sort((a, b) => a.daysLeft - b.daysLeft || (a.last < b.last ? 1 : -1));
   }

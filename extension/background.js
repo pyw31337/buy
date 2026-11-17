@@ -19,6 +19,13 @@ chrome.alarms.onAlarm.addListener(async a => {
 const WEB = 'https://pyw31337.github.io/buy/';
 const COLLECTABLE = /^https:\/\/(mail\.naver\.com|mail\.google\.com|mc\.coupang\.com|my\.coupang\.com|www\.coupang\.com\/my|order\.pay\.naver\.com|pay\.naver\.com)/;
 const badge = (text, color = '#FF5A36') => { chrome.action.setBadgeBackgroundColor({ color }); chrome.action.setBadgeText({ text: String(text) }); };
+let orderSaveQueue = Promise.resolve();
+const queueOrderSave = work => { const next = orderSaveQueue.then(work, work); orderSaveQueue = next.catch(() => {}); return next; };
+const ORDER_PHOTO_PAGES = [
+  { mall: '네이버페이', url: 'https://order.pay.naver.com/home' },
+  { mall: '쿠팡', url: 'https://mc.coupang.com/ssr/desktop/mycoupang/orders/list?pageType=ORDER_HISTORY' }
+];
+const pendingOrderPhotoTabs = new Map();
 chrome.action.onClicked.addListener(async tab => {
   if (!COLLECTABLE.test(tab.url || '')) { chrome.tabs.create({ url: WEB }); return; }
   badge('…');
@@ -40,6 +47,15 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
     // 사진 검색은 사용자가 "사진 채우기"를 눌렀을 때만 시작한다.
     collectPrices().then(notify); // 가격은 뒤에서 조용히
   });
+  if (m.type === 'orderMedia') {
+    queueOrderSave(() => saveOrders(m.orders, [])).then(async n => {
+      const meta = m.meta || {};
+      await chrome.storage.local.set({ orderPhotoProgress: { state: 'complete', text: `${meta.mall || '주문내역'} 실제 사진 ${meta.matched || 0}개 반영`, at: new Date().toISOString(), ...meta } });
+      reply({ ok: true, orders: n, matched: meta.matched || 0 });
+    }).catch(e => reply({ ok: false, error: String(e?.message || e) }));
+    return true;
+  }
+  if (m.type === 'openOrderPhotos') { openOrderPhotoPages().then(reply).catch(e => reply({ ok: false, error: String(e?.message || e) })); return true; }
   if (m.type === 'pricesNow') { collectPrices().then(r => notify().then(() => reply(r))); return true; }
   if (m.type === 'testNotify') { show('test', '렛츠바이 알림 테스트', '알림이 잘 보이면 준비 완료예요.'); reply({}); }
   if (m.type === 'health') {
@@ -48,6 +64,27 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
   }
   if (m.type === 'settings') { chrome.storage.local.set({ settings: { shareThumbs: !!m.settings?.shareThumbs } }).then(() => reply({ ok: true })); return true; }
   if (m.type === 'cancelCollect') { cancelCollections().then(() => reply({ ok: true })); return true; }
+});
+
+async function openOrderPhotoPages() {
+  const opened = [];
+  for (let i = 0; i < ORDER_PHOTO_PAGES.length; i++) {
+    const spec = ORDER_PHOTO_PAGES[i], tab = await chrome.tabs.create({ url: spec.url, active: i === 0 });
+    pendingOrderPhotoTabs.set(tab.id, spec.mall); opened.push(spec.mall);
+  }
+  await chrome.storage.local.set({ orderPhotoProgress: { state: 'opening', text: '네이버페이·쿠팡 주문내역에서 실제 사진을 확인하고 있어요.', malls: opened, at: new Date().toISOString() } });
+  return { ok: true, opened };
+}
+chrome.tabs.onUpdated.addListener((tabId, info) => {
+  if (info.status !== 'complete' || !pendingOrderPhotoTabs.has(tabId)) return;
+  const mall = pendingOrderPhotoTabs.get(tabId); pendingOrderPhotoTabs.delete(tabId);
+  // SPA가 주문 카드와 이미지를 그릴 시간을 준 뒤 현재 보이는 실제 주문을 읽는다.
+  setTimeout(() => chrome.tabs.sendMessage(tabId, { type: 'collectOrderMedia' }, result => {
+    const error = chrome.runtime.lastError?.message;
+    chrome.storage.local.set({ orderPhotoProgress: error || !result?.ok
+      ? { state: 'needs-login', text: `${mall} 주문내역을 읽지 못했어요. 로그인·주문목록 화면을 확인해 주세요.`, at: new Date().toISOString() }
+      : { state: 'complete', text: `${mall} 주문내역의 실제 사진을 가져왔어요.`, at: new Date().toISOString() } });
+  }), 4500);
 });
 
 async function cancelCollections() {

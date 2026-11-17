@@ -266,7 +266,9 @@
     const run = p && p.running;
     const problem = p?.error;
     const result = !run && Number.isFinite(p?.searched) ? `<small class="phresult">검색 ${p.searched}회 · 새 사진 ${p.found || 0}개</small>` : '';
-    return `<div class="phbar"><span class="phl">${svg('image', 16)} 사진 <b>${have}/${items.length}</b></span><span class="phm"><i style="width:${run ? Math.round(p.done / (p.total || 1) * 100) : pc}%"></i></span>${run ? `<small>찾는 중 ${p.done}/${p.total}${p.queued ? ' · 다음 묶음 자동 진행' : ''}</small>` : `<button class="btn sm" id="fillImg">${problem ? '다시 시도' : '사진 채우기'}</button>`}${result}${problem ? `<small class="pherr" title="${esc(problem)}">중단됨 · 다시 시도해 주세요</small>` : ''}</div>`;
+    const orderState = orderPhotoProgress?.text ? `<small class="phorder">${esc(orderPhotoProgress.text)}</small>` : '';
+    const controls = `<button class="btn sm" id="orderPhotos">실제 주문 사진</button><button class="btn sm ghost" id="fillImg">${problem ? '검색 다시 시도' : '검색으로 보강'}</button>`;
+    return `<div class="phbar"><span class="phl">${svg('image', 16)} 사진 <b>${have}/${items.length}</b></span><span class="phm"><i style="width:${run ? Math.round(p.done / (p.total || 1) * 100) : pc}%"></i></span>${run ? `<small>찾는 중 ${p.done}/${p.total}${p.queued ? ' · 다음 묶음 자동 진행' : ''}</small>` : controls}${result}${orderState}${problem ? `<small class="pherr" title="${esc(problem)}">중단됨 · 다시 시도해 주세요</small>` : ''}</div>`;
   }
   function startPhotoFill() {
     if (!extensionIsCurrent()) return toast(extInfo ? `확장 v${extInfo.version}은(는) 오래됐어요. v${REQUIRED_EXTENSION_VERSION}으로 업데이트해 주세요.` : '확장 연결을 먼저 확인해 주세요.');
@@ -276,6 +278,12 @@
   }
   function bindPhoto(el) {
     const b = el && el.querySelector('#fillImg');
+    const order = el && el.querySelector('#orderPhotos');
+    if (order) order.onclick = () => {
+      if (!extensionIsCurrent()) return toast(extInfo ? `확장 v${extInfo.version}은(는) 오래됐어요. v${REQUIRED_EXTENSION_VERSION}으로 업데이트해 주세요.` : '확장 연결을 먼저 확인해 주세요.');
+      order.disabled = true; order.textContent = '주문내역 여는 중…';
+      window.postMessage({ app: 'letsbuy-web', type: 'openOrderPhotos' }, location.origin);
+    };
     if (!b) return;
     b.onclick = () => {
       if (extensionIsCurrent()) return startPhotoFill();
@@ -356,8 +364,8 @@
   go(store.orders.length && location.hash !== '#home' ? (['prod', 'items', 'dash'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'prod') : 'home');
   $('#demo').onclick = () => { demo = true; render(); go('prod'); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
-  const REQUIRED_EXTENSION_VERSION = '0.15.2';
-  let extInfo = null, extLog = [], extProbe = null, extHealth = null, collectProgress = null, extSettings = { shareThumbs: false };
+  const REQUIRED_EXTENSION_VERSION = '0.16.0';
+  let extInfo = null, extLog = [], extProbe = null, extHealth = null, collectProgress = null, orderPhotoProgress = null, extSettings = { shareThumbs: false };
   function versionAtLeast(actual, required) {
     const a = String(actual || '').split('.').map(n => Number(n) || 0), b = String(required).split('.').map(n => Number(n) || 0);
     for (let i = 0; i < Math.max(a.length, b.length); i++) { if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0); }
@@ -402,7 +410,9 @@
     if (e.data.type === 'collectProgress') { collectProgress = e.data.progress || null; renderHealth(); }
     if (e.data.type === 'hello') markExtensionConnected(e.data.version);
     if (e.data.type === 'thumbProg') { thumbProg = e.data.prog; const el = document.querySelector('.phbar'); if (el) el.outerHTML = photoBar(); bindPhoto(document); }
-    if (e.data.type === 'data') { const wasEmpty = !store.orders.length; if (!extInfo) markExtensionConnected(e.data.version); if (e.data.mailStats) store.mailStats = e.data.mailStats; if (e.data.pricedTs) store.pricedTs = e.data.pricedTs; if (e.data.collectProgress) collectProgress = e.data.collectProgress; if (e.data.settings) { extSettings = e.data.settings; $('#shareThumbs').checked = !!extSettings.shareThumbs; } THUMB = {}; for (const [k, v] of Object.entries(e.data.thumbs || {})) THUMB[k] = v.d || v.u; if (e.data.thumbProg) thumbProg = e.data.thumbProg; if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders || [], e.data.prices || {}, true); if (wasEmpty && (e.data.orders || []).length && cur === 'home') go('items'); const version = e.data.version || extInfo.version; $('#extState').textContent = extensionIsCurrent() ? `확장 v${version} · 주문 ${(e.data.orders || []).length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}` : `확장 v${version} 업데이트 필요`; $('#extState').classList.toggle('on', extensionIsCurrent()); renderHealth(); }
+    if (e.data.type === 'orderPhotoProgress') { orderPhotoProgress = e.data.progress || null; const el = document.querySelector('.phbar'); if (el) el.outerHTML = photoBar(); bindPhoto(document); }
+    if (e.data.type === 'orderPhotos') { const r = e.data.result || {}; toast(r.ok ? '네이버페이·쿠팡 주문내역을 열었어요. 실제 상품 사진을 읽습니다.' : '주문내역 탭을 열지 못했어요.'); }
+    if (e.data.type === 'data') { const wasEmpty = !store.orders.length; if (!extInfo) markExtensionConnected(e.data.version); if (e.data.mailStats) store.mailStats = e.data.mailStats; if (e.data.pricedTs) store.pricedTs = e.data.pricedTs; if (e.data.collectProgress) collectProgress = e.data.collectProgress; if (e.data.orderPhotoProgress) orderPhotoProgress = e.data.orderPhotoProgress; if (e.data.settings) { extSettings = e.data.settings; $('#shareThumbs').checked = !!extSettings.shareThumbs; } THUMB = {}; for (const [k, v] of Object.entries(e.data.thumbs || {})) THUMB[k] = v.d || v.u; if (e.data.thumbProg) thumbProg = e.data.thumbProg; if (e.data.stats) { store.stats = e.data.stats; store.mailCount = e.data.mailCount; } merge(e.data.orders || [], e.data.prices || {}, true); if (wasEmpty && (e.data.orders || []).length && cur === 'home') go('items'); const version = e.data.version || extInfo.version; $('#extState').textContent = extensionIsCurrent() ? `확장 v${version} · 주문 ${(e.data.orders || []).length}건${e.data.pricedAt ? ' · 가격 ' + e.data.pricedAt : ''}` : `확장 v${version} 업데이트 필요`; $('#extState').classList.toggle('on', extensionIsCurrent()); renderHealth(); }
     if (e.data.type === 'data') setTimeout(sharedFill, 300);
   });
   // 확장이 먼저 로드돼 hello를 이미 보냈더라도, pull 응답(data)으로 연결을 판정한다.

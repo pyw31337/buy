@@ -1,12 +1,13 @@
 /* 렛츠바이 웹페이지 ↔ 확장 저장소 연결. 데이터는 사용자 브라우저 밖으로 나가지 않습니다. */
 const post = (type, data = {}) => window.postMessage({ app: 'letsbuy-ext', type, ...data }, location.origin);
-const send = () => chrome.storage.local.get(['orders', 'prices', 'pricedAt', 'diag', 'collectStats', 'collectProgress', 'mails', 'thumbs', 'thumbProg', 'mailStats', 'pricedTs', 'settings'], d => post('data', { orders: d.orders || [], prices: d.prices || {}, pricedAt: d.pricedAt, diagCount: (d.diag || []).length, stats: d.collectStats || null, collectProgress: d.collectProgress || null, mailCount: (d.mails || []).length, thumbs: d.thumbs || {}, mailStats: d.mailStats || null, pricedTs: d.pricedTs || null, thumbProg: d.thumbProg || null, settings: d.settings || { shareThumbs: false }, version: chrome.runtime.getManifest().version }));
+const send = () => chrome.storage.local.get(['orders', 'prices', 'pricedAt', 'diag', 'collectStats', 'collectProgress', 'mails', 'thumbs', 'thumbProg', 'orderPhotoProgress', 'mailStats', 'pricedTs', 'settings'], d => post('data', { orders: d.orders || [], prices: d.prices || {}, pricedAt: d.pricedAt, diagCount: (d.diag || []).length, stats: d.collectStats || null, collectProgress: d.collectProgress || null, mailCount: (d.mails || []).length, thumbs: d.thumbs || {}, thumbProg: d.thumbProg || null, orderPhotoProgress: d.orderPhotoProgress || null, mailStats: d.mailStats || null, pricedTs: d.pricedTs || null, settings: d.settings || { shareThumbs: false }, version: chrome.runtime.getManifest().version }));
 const announce = () => { post('hello', { version: chrome.runtime.getManifest().version }); send(); };
 window.addEventListener('message', e => {
   if (e.source !== window || !e.data || e.data.app !== 'letsbuy-web') return;
   // 페이지가 늦게 시작해도 pull 한 번이면 hello와 저장 데이터를 모두 다시 보낸다.
   if (e.data.type === 'pull') announce();
   if (e.data.type === 'fillImages') chrome.runtime.sendMessage({ type: 'fillImages', force: !!e.data.force }, () => send());
+  if (e.data.type === 'openOrderPhotos') chrome.runtime.sendMessage({ type: 'openOrderPhotos' }, result => post('orderPhotos', { result: result || { ok: false } }));
   if (e.data.type === 'health') chrome.runtime.sendMessage({ type: 'health' }, health => post('health', { health: health || { ready: false } }));
   if (e.data.type === 'cancelCollect') chrome.runtime.sendMessage({ type: 'cancelCollect' }, () => {});
   if (e.data.type === 'settings') chrome.runtime.sendMessage({ type: 'settings', settings: e.data.settings || {} }, () => send());
@@ -19,6 +20,7 @@ window.addEventListener('message', e => {
 let lastHave = -1;
 chrome.storage.onChanged.addListener(c => {
   if (c.collectProgress) post('collectProgress', { progress: c.collectProgress.newValue || null });
+  if (c.orderPhotoProgress) { post('orderPhotoProgress', { progress: c.orderPhotoProgress.newValue || null }); send(); }
   if (!c.thumbProg) return;
   const p = c.thumbProg.newValue || {}; post('thumbProg', { prog: p }); if (!p.running || p.done % 5 === 0) send();
 });

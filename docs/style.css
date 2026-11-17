@@ -174,12 +174,13 @@ code{font-size:12px;background:#F0EFEB;padding:2px 6px;border-radius:6px;word-br
 #aiCatMsg.err{color:#C8321E;font-weight:700}#aiCatMsg a{color:inherit}
 @media (max-width:640px){.pgrid{grid-template-columns:repeat(2,1fr);gap:10px}.pc-card{padding:8px;border-radius:16px}.vb{top:14px;left:14px;font-size:11px;padding:4px 8px}.pnow{font-size:16px}.pdtop{grid-template-columns:1fr}.pdimg{max-width:320px;margin:0 auto}.vsum span{min-width:0;flex:1}.vsum{width:100%}}
 /* v0.12 사진 채우기 */
-.phbar{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #ECEAE4;border-radius:14px;padding:10px 14px;margin:10px 0 14px}
+.phbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;background:#fff;border:1px solid #ECEAE4;border-radius:14px;padding:10px 14px;margin:10px 0 14px}
 .phbar .phl{display:flex;align-items:center;gap:6px;font-size:14px;color:#55555C;white-space:nowrap}.phbar .phl b{color:#1A1A1F;font-size:16px}
 .phbar .phm{flex:1;height:8px;border-radius:8px;background:#F1F0EC;overflow:hidden}.phbar .phm i{display:block;height:100%;background:#FF5A36;border-radius:8px;transition:width .4s}
 .phbar small{color:#77777F;white-space:nowrap}
 .phbar .pherr{color:#B2442E}
 .phbar .phresult{color:#4C6978}
+.phbar .phorder{color:#157160}
 /* ── v0.13 위계·대비 ── */
 .n{font-style:normal;font-size:11px;font-weight:600;line-height:1;padding:3px 6px;border-radius:99px;background:rgba(0,0,0,.06);color:#8A8A92;margin-left:6px;vertical-align:1px}
 .on>.n,.seg .on .n,.ct.on .n{background:rgba(255,255,255,.22);color:rgba(255,255,255,.85)}
