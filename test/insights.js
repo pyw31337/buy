@@ -7,6 +7,8 @@ eq(paymentProfile.includeSpend, false, 'point payment excluded from spend');
 eq(paymentProfile.photoSearch, false, 'point payment excluded from photos');
 eq(LetsBuy.itemProfile('전자책 다운로드 이용권').entity, 'digital', 'digital is not physical product');
 eq(LetsBuy.itemProfile('원목 식탁 4인용').category, '가구', 'furniture category');
+eq(LetsBuy.itemProfile('물먹는하마 제습제 옷장용 10개입').behavior, 'consumable', 'storage-use wording does not become furniture');
+eq(I.categorize('물먹는하마 제습제 옷장용 10개입').main, '생활용품', 'storage-use wording categorizes as household goods');
 eq(LetsBuy.itemProfile('LP 앨범 한정판').category, '문화·취미', 'culture category');
 eq(LetsBuy.profileWithCategory('이름모를 세트', '식품/간식').recommend, true, 'manual food category unlocks repeat policy');
 const u = I.unitPrice('촌두부 550g', 3980, 2); eq(u && u.label, '100g당', 'unit label'); eq(Math.round(u.value), 362, 'unit value');

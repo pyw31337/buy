@@ -143,10 +143,10 @@
     $('#season').innerHTML = season.map(i => card(i, d)).join(''); $('#seasonH').style.display = season.length ? '' : 'none';
     const q = $('#q').value.trim();
     const all = LetsBuy.analyze(d.orders, d.today, d.aliases, { all: true }).filter(i => !store.ignored?.[i.key]);
-    const rows = all.filter(i => (filter === 'all' || (filter === '재구매' ? i.count >= 2 : filter === '1회' ? i.count === 1 : i.type.startsWith(filter))) && (!q || i.name.includes(q)) && (!catF || LetsBuyInsights.categorize(i.name, store.cats[i.key]).main === catF))
+    const rows = all.filter(i => (filter === 'all' || (filter === '검토' ? needsReview(i) : filter === '재구매' ? i.count >= 2 : filter === '1회' ? i.count === 1 : i.type.startsWith(filter))) && (!q || i.name.includes(q)) && (!catF || LetsBuyInsights.categorize(i.name, store.cats[i.key]).main === catF))
       .sort((x, y) => (y.count >= 2) - (x.count >= 2) || (x.count >= 2 ? x.daysLeft - y.daysLeft : (x.last < y.last ? 1 : -1)));
-    $$('#filter button').forEach(b => { const f = b.dataset.f, n = f === 'all' ? all.length : f === '재구매' ? all.filter(i => i.count >= 2).length : f === '1회' ? all.filter(i => i.count === 1).length : all.filter(i => i.type.startsWith(f)).length; b.innerHTML = `<span>${b.dataset.l}</span><i class="n">${n.toLocaleString()}</i>`; });
-    $('#summary').innerHTML = photoBar() + summary(d.orders) + (catF ? `<button class="catf" id="catf">${esc(catF)} ×</button>` : ''); bindPhoto($('#summary'));
+    $$('#filter button').forEach(b => { const f = b.dataset.f, n = f === 'all' ? all.length : f === '검토' ? all.filter(needsReview).length : f === '재구매' ? all.filter(i => i.count >= 2).length : f === '1회' ? all.filter(i => i.count === 1).length : all.filter(i => i.type.startsWith(f)).length; b.innerHTML = `<span>${b.dataset.l}</span><i class="n">${n.toLocaleString()}</i>`; });
+    $('#summary').innerHTML = reviewBanner(all) + photoBar() + summary(d.orders) + (catF ? `<button class="catf" id="catf">${esc(catF)} ×</button>` : ''); bindPhoto($('#summary'));
     if (cur === 'dash' && window.renderDash) window.renderDash();
     if (cur === 'prod' && window.renderProd) window.renderProd();
     if ($('#itemsRange')) $('#itemsRange').innerHTML = pastTag(d.orders); if ($('#dashRange')) $('#dashRange').innerHTML = pastTag(d.orders);
@@ -159,6 +159,11 @@
   // 구매 기록: 분류별 묶음, 묶음마다 5개 + 더보기(20개씩). 보이는 것만 그림
   let more = {};
   const dormant = i => i.count >= 2 && i.type !== '시즌' && -i.daysLeft > Math.max(3 * (i.avgGap || 30), 90);
+  // 기타 실물은 자동 추정으로만 두지 않고, 사용자가 확정할 때만 검토함에서 빠진다.
+  const needsReview = i => {
+    const p = LetsBuy.profileWithCategory(i.name, store.cats[i.key]);
+    return p.entity === 'physical' && p.confidence < .75 && !store.cats[i.key];
+  };
   const ym2 = d => d ? d.slice(2, 7).replace('-', '.') : '';
   function status(i) {
     if (i.count >= 2 && !dormant(i)) return ring(i, 44);
@@ -170,6 +175,11 @@
   const pastTag = orders => { const ds = orders.map(o => o.date).filter(Boolean).sort(); return ds.length ? `<span class="tg past">${svg('mail', 13)}내 기록 · ${ymd(ds[0])} – ${ymd(ds[ds.length - 1])}</span>` : ''; };
   const ago = () => { let t = store.pricedTs ? Date.parse(store.pricedTs) : 0; if (!t) { const all = Object.values(raw().prices || {}).flat().map(p => p.date).sort(); const l = all[all.length - 1]; if (l) t = Date.parse(l + 'T09:00:00+09:00'); } if (!t) return null; const h = Math.max(0, Math.round((Date.now() - t) / 36e5)); return h < 1 ? '방금' : h < 24 ? h + '시간 전' : Math.round(h / 24) + '일 전'; };
   const liveTag = () => { const a = ago(); return `<span class="tg live"><i></i>실시간${a ? ' · ' + a + ' 업데이트' : ' · 모으는 중'}</span>`; };
+  function reviewBanner(all) {
+    if (filter !== '검토') return '';
+    const n = all.filter(needsReview).length;
+    return '<section class="reviewDeck"><span class="rdey">DATA REVIEW</span><div><b>자동 추정 ' + n.toLocaleString() + '개를 확인해 주세요</b><p>분류를 저장하면 이후 재구매·가격·사진 정책에 바로 반영됩니다. 애매한 항목은 기타나 디지털·서비스, 정산·결제로 바꿀 수 있어요.</p></div></section>';
+  }
   function renderList(rows) {
     const g = {}; rows.forEach(i => { const c = LetsBuyInsights.categorize(i.name, store.cats[i.key]).main || '기타'; (g[c] = g[c] || []).push(i); });
     const cats = Object.entries(g).sort((a, b) => (a[0] === '기타') - (b[0] === '기타') || b[1].length - a[1].length);
@@ -364,7 +374,7 @@
   go(store.orders.length && location.hash !== '#home' ? (['prod', 'items', 'dash'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'prod') : 'home');
   $('#demo').onclick = () => { demo = true; render(); go('prod'); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
-  const REQUIRED_EXTENSION_VERSION = '0.18.0';
+  const REQUIRED_EXTENSION_VERSION = '0.18.1';
   let extInfo = null, extLog = [], extProbe = null, extHealth = null, collectProgress = null, orderPhotoProgress = null, extSettings = { shareThumbs: false };
   function versionAtLeast(actual, required) {
     const a = String(actual || '').split('.').map(n => Number(n) || 0), b = String(required).split('.').map(n => Number(n) || 0);

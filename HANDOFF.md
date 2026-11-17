@@ -1,6 +1,6 @@
 # 렛츠바이 인수인계 (HANDOFF)
 
-> 마지막 갱신: 2026-11-17 (KST) · 현재 버전 **v0.18.0** · 사이트 https://pyw31337.github.io/buy/
+> 마지막 갱신: 2026-11-18 (KST) · 현재 버전 **v0.18.1** · 사이트 https://pyw31337.github.io/buy/
 
 ## 1. 제품과 사용자
 - **목표:** 주문 메일에서 "자주 사는 물건"을 찾아 **다시 살 때**와 **지금 최저가**를 알려주는 개인 구매 비서. 데이터는 사용자의 브라우저에만 저장.
@@ -52,7 +52,7 @@
 | docs/products.js | '살 때' 카드와 제품 상세, 판단 model() |
 | docs/dash.js, insights.js | 내 소비 분석과 카테고리 사전 |
 | docs/brand/, favicon.ico, manifest.webmanifest, og-image.png | 브랜드. 아이콘은 오너 제공 가방 이미지 기반 (v0.14.2–0.14.3) |
-| docs/letsbuy-extension-v0.18.0.zip | v0.18.0 확장 릴리스 파일 |
+| docs/letsbuy-extension-v0.18.1.zip | v0.18.1 확장 릴리스 파일 |
 | extension/ | MV3: background(수집, 가격, 사진), naver-mail, gmail, bridge, order-list, price-page, diag |
 | worker/ | 썸네일 Worker 사본 |
 | test/ | node 테스트. fixtures는 가짜 데이터만 |
@@ -61,7 +61,7 @@
 ```bash
 npm test                      # 반드시 0으로 끝나야 함
 cp docs/core.js extension/core.js
-python3 -c "import shutil;shutil.make_archive('docs/letsbuy-extension-v0.18.0','zip','extension')"
+python3 -c "import shutil;shutil.make_archive('docs/letsbuy-extension-v0.18.1','zip','extension')"
 git -c user.name=pyw31337 -c user.email=pyw31337@users.noreply.github.com commit -am "vX.Y.Z: ..."
 git push                      # main/docs → GitHub Pages가 1–2분 안에 자동 배포
 gh release create vX.Y.Z docs/letsbuy-extension-vX.Y.Z.zip -t vX.Y.Z -n "..."
@@ -97,6 +97,7 @@ gh release create vX.Y.Z docs/letsbuy-extension-vX.Y.Z.zip -t vX.Y.Z -n "..."
 ## 8. 버전 기록과 교훈
 | 버전 | 핵심 |
 |---|---|
+| v0.18.1 | 자동 추정 실물 품목을 구매 기록의 검토 필터로 모아 확인하도록 하고, “옷장용 제습제” 같은 사용처 단어가 가구로 오인되지 않도록 보완. |
 | v0.18.0 | 구매 원장과 추천·가격·사진 정책을 분리. 결제·포인트·상품권·충전은 정산 흐름으로, 디지털·서비스는 실물 추적 제외로 처리. 문화·취미/홈·인테리어/가구/문구·완구를 독립 분류하고, 수동 분류가 확장 수집 정책까지 동기화되도록 함. |
 | v0.17.1 | 확장 업데이트·재시작으로 멈춰 있던 사진 대기열을 자동 재등록. 90초 이상 갱신이 없으면 진행 중 표시 대신 “중단된 검색 이어서”를 제공하고, 기존 커서부터 재개. |
 | v0.17.0 | 쿠팡 차단 SSR 경로를 일반 마이쿠팡 주문목록으로 교체. 네이버페이·쿠팡의 연도·페이지(무한 목록은 스크롤)를 최대 120화면까지 순회해 실제 주문 사진을 대조하고 누적 진행을 표시. |

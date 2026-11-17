@@ -279,3 +279,6 @@ body{background:radial-gradient(900px 440px at 12% -8%,#E9F5EF 0,transparent 64%
 .pc-card{border-color:rgba(21,43,37,.08);box-shadow:0 8px 22px rgba(21,43,37,.035)}.pc-card:hover{box-shadow:0 18px 36px rgba(21,43,37,.12)}
 @media(max-width:760px){.northstar,.quality{grid-template-columns:1fr}.northstar-list{grid-template-columns:1fr 1fr}.qstats{max-width:520px}.quality{padding:18px}.phead{padding:18px!important}}
 @media(max-width:480px){.northstar{padding:20px}.northstar-list{grid-template-columns:1fr}.qstats{grid-template-columns:1fr 1fr}.phscope{display:none}.policyHint{font-size:11px}}
+/* 자동 추정 원장은 한곳에서 빠르게 확인·확정한다 */
+.reviewDeck{display:flex;align-items:flex-start;gap:14px;margin:10px 0 14px;padding:17px 18px;border:1px solid #F2CEAA;border-radius:18px;background:linear-gradient(120deg,#FFF9F0,#FFF3E5)}.rdey{padding:5px 7px;border-radius:6px;background:#FCE1C2;color:#9A4B13;font-size:10px;font-weight:900;letter-spacing:.07em}.reviewDeck b{display:block;font-size:16px;color:#553014}.reviewDeck p{margin:5px 0 0;font-size:12.5px;line-height:1.55;color:#806247}
+@media(max-width:560px){.reviewDeck{gap:10px;padding:14px}.rdey{font-size:9px}.reviewDeck b{font-size:14px}}

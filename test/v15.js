@@ -23,7 +23,7 @@ const product = Products.build({ orders, aliases: {}, today: '2026-03-05', price
 } })[0];
 assert.strictEqual(product.verdict.t, '상품 확인 필요');
 const app = fs.readFileSync(require('path').join(__dirname, '../docs/app.js'), 'utf8');
-assert(app.includes("const REQUIRED_EXTENSION_VERSION = '0.18.0'"), '웹이 필요한 확장 버전을 명시한다');
+assert(app.includes("const REQUIRED_EXTENSION_VERSION = '0.18.1'"), '웹이 필요한 확장 버전을 명시한다');
 assert(app.includes('function versionAtLeast(actual, required)'), '구버전 연결을 판별한다');
 assert(app.includes('확장 업데이트 필요'), '구버전의 업데이트 안내를 표시한다');
 const background = fs.readFileSync(require('path').join(__dirname, '../extension/background.js'), 'utf8');
@@ -39,6 +39,7 @@ assert(background.includes('www.coupang.com/np/mycoupang/orderlist') && !backgro
 assert(background.includes('resumeThumbJob') && background.includes("chrome.alarms.create('thumb-resume'"), '업데이트 뒤에도 멈춘 사진 대기열을 재개한다');
 assert(background.includes('profileWithCategory') && background.includes('policyVersion: 2'), '사진·가격·알림 대상을 품목 정책에 따라 제한한다');
 assert(app.includes('실물 사진') && app.includes('결제·상품권·디지털은 대상에서 제외'), '사진 대상 범위를 실제 상품으로 명시한다');
+assert(app.includes("filter === '검토'") && app.includes('자동 추정'), '자동 추정 품목을 별도 검토하는 흐름을 제공한다');
 const orderList = fs.readFileSync(require('path').join(__dirname, '../extension/order-list.js'), 'utf8');
 assert(orderList.includes('visibleMedia') && orderList.includes("type: 'orderMedia'"), '주문목록의 실제 이미지와 링크를 수집한다');
 assert(orderList.includes('!rows.length && !media.length'), '주문 텍스트 행이 없어도 실제 카드 사진 수집을 계속한다');

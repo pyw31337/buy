@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "렛츠바이 수집기",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "로그인된 메일의 구매기록을 내 브라우저에만 저장하고, 실물 소모품만 재구매·가격·사진 대상으로 분석합니다.",
   "permissions": [
     "storage",
