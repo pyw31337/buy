@@ -209,8 +209,8 @@ async function shopSearch(shop, q, state) {
 }
 
 async function collectPrices() {
-  const { orders = [], prices = {}, aliases = {} } = await chrome.storage.local.get(['orders', 'prices', 'aliases']);
-  const today = todayStr(), items = LetsBuy.analyze(orders, today, aliases).sort((a, b) => b.count - a.count).slice(0, 60); let ok = 0; const fails = {}, st = {};
+  const { orders = [], prices = {}, aliases = {}, cats = {} } = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'cats']);
+  const today = todayStr(), items = LetsBuy.analyze(orders, today, aliases, { all: true }).filter(it => LetsBuy.profileWithCategory(it.name, cats[it.key]).priceTrack).sort((a, b) => b.count - a.count).slice(0, 60); let ok = 0; const fails = {}, st = {};
   SHOPS.forEach(s => st[s.name] = { tab: false, tabs: 0, off: false });
   for (const it of items) {
     const q = encodeURIComponent(LetsBuy.tokens(it.name).slice(0, 5).join(' ') || it.name);
@@ -243,8 +243,8 @@ async function collectPrices() {
 
 function show(id, title, message) { chrome.notifications.create('lb-' + id + '-' + Date.now(), { type: 'basic', iconUrl: 'icons/icon128.png', title, message, priority: 1 }); }
 async function notify() {
-  const { orders = [], prices = {}, aliases = {}, notified = {}, settings = { due: true, drop: true } } = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'notified', 'settings']);
-  const today = todayStr(), items = LetsBuy.analyze(orders, today, aliases);
+  const { orders = [], prices = {}, aliases = {}, cats = {}, notified = {}, settings = { due: true, drop: true } } = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'cats', 'notified', 'settings']);
+  const today = todayStr(), items = LetsBuy.analyze(orders, today, aliases, { all: true }).filter(it => LetsBuy.profileWithCategory(it.name, cats[it.key]).recommend);
   for (const it of items) {
     if (settings.due && it.type !== '비정기' && it.type !== '시즌' && it.daysLeft <= 3 && notified['due:' + it.key] !== it.nextDate) {
       show('due', '다시 살 때가 됐어요', `${it.name} · 평균 ${it.avgGap}일마다 사셨어요`); notified['due:' + it.key] = it.nextDate;
@@ -329,16 +329,16 @@ async function fillImages(force) {
   if (filling) return { busy: true }; filling = true;
   let lastProgress = null, priorProgress = null;
   try {
-    const st = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'thumbs', 'thumbMiss', 'settings', 'thumbJob', 'thumbProg']);
+    const st = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'cats', 'thumbs', 'thumbMiss', 'settings', 'thumbJob', 'thumbProg']);
     priorProgress = st.thumbProg || null;
     const thumbs = st.thumbs || {}, miss = st.thumbMiss || {}, today = todayStr(), prices = st.prices || {};
-    const items = LetsBuy.analyze(st.orders || [], today, st.aliases || {}, { all: true }).sort((a, b) => b.count - a.count);
+    const items = LetsBuy.analyze(st.orders || [], today, st.aliases || {}, { all: true }).filter(it => LetsBuy.profileWithCategory(it.name, (st.cats || {})[it.key]).photoSearch).sort((a, b) => b.count - a.count);
     // 주문 메일에 이미 담긴 사진은 다시 검색하지 않는다.
     for (const it of items) if (!thumbs[it.key] && it.img) thumbs[it.key] = { u: it.img, from: '메일' };
-    let job = !force && st.thumbJob?.keys?.length ? st.thumbJob : null;
+    let job = !force && st.thumbJob?.policyVersion === 2 && st.thumbJob?.keys?.length ? st.thumbJob : null;
     if (!job) {
       const todo = items.filter(it => !thumbs[it.key] && (force || !miss[it.key] || Date.parse(today) - Date.parse(miss[it.key]) > 7 * 864e5));
-      job = { keys: todo.map(it => it.key), cursor: 0, total: todo.length, found: 0, searched: 0, sources: {}, startedAt: new Date().toISOString() };
+      job = { policyVersion: 2, keys: todo.map(it => it.key), cursor: 0, total: todo.length, found: 0, searched: 0, sources: {}, startedAt: new Date().toISOString() };
       await chrome.alarms.clear(THUMB_ALARM);
     }
     job.found = Number(job.found) || 0;

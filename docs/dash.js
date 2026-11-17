@@ -4,7 +4,7 @@
   const W = (k) => window.LB_UI[k];
   const man = n => n >= 1e8 ? (n / 1e8).toFixed(1) + '억' : n >= 1e4 ? Math.round(n / 1e4).toLocaleString() + '만' : Math.round(n).toLocaleString();
   const won = n => man(n) + '원';
-  const CI = { '식품': 'apple', '영양제': 'pill', '생활용품': 'roll', '육아': 'baby', '반려동물': 'paw', '뷰티': 'sparkles', '주방': 'pan', '패션': 'shirt', '캠핑·레저': 'tent', '가전·디지털': 'plug', '기타': 'package' };
+  const CI = { '식품': 'apple', '영양제': 'pill', '생활용품': 'roll', '홈·인테리어': 'package', '가구': 'package', '문구·완구': 'puzzle', '문화·취미': 'star', '디지털·서비스': 'plug', '정산·결제': 'wallet', '육아': 'baby', '반려동물': 'paw', '뷰티': 'sparkles', '주방': 'pan', '패션': 'shirt', '캠핑·레저': 'tent', '가전·디지털': 'plug', '기타': 'package' };
   const icon = (c, sz = 18) => W('svg')(CI[c] || 'package', sz);
   const pctTag = (p, inv) => p == null ? '<span class="pct">–</span>' : `<span class="pct ${(inv ? -p : p) > 0 ? 'up' : p < 0 ? 'down' : ''}">${p > 0 ? '▲' : p < 0 ? '▼' : ''}${Math.abs(p)}%</span>`;
 
@@ -51,14 +51,15 @@
     const A = I.insights(d.orders, { today: d.today, cats: st.cats || {}, aliases: d.aliases, prices: d.prices });
     const thumb = W('thumb'), esc = W('esc'), mallChip = W('mallChip'), svg = W('svg');
     const last12 = A.monthly.slice(12), avgM = Math.round(last12.reduce((s, m) => s + m.spend, 0) / 12);
-    const kpi = [['wallet', '최근 12개월 지출', won(A.yoy.cur), pctTag(A.yoy.pct) + ' 작년 대비'], ['calendar', '한 달 평균', won(avgM), `주문 ${Math.round(A.yoy.curN / 12)}건/월`], ['cart', '한 번 주문할 때', won(A.basket.avg), `총 ${A.basket.n.toLocaleString()}번 주문`], ['package', '산 물건', A.total.items.toLocaleString() + '종', `${A.total.count.toLocaleString()}건 구매`]];
+    const kpi = [['wallet', '최근 12개월 지출', won(A.yoy.cur), '결제·상품권 정산 제외 · ' + pctTag(A.yoy.pct) + ' 작년 대비'], ['calendar', '한 달 평균', won(avgM), `분석된 주문 ${Math.round(A.yoy.curN / 12)}건/월`], ['cart', '한 번 주문할 때', won(A.basket.avg), `총 ${A.basket.n.toLocaleString()}번 주문`], ['package', '분석 대상', A.total.items.toLocaleString() + '종', `원장 ${A.quality.ledgerItems.toLocaleString()}종 중`]];
     const peak = A.peaks[0];
     const TN = { up: '#E5484D', down: '#1F9D63', hot: '#FF5A36', warn: '#B7791F', '': '#16161A' };
     el.innerHTML = `
       ${window.prodChips ? window.prodChips() : ''}
+      <section class="quality"><div class="qintro"><span class="qey">분석 신뢰도</span><b>원본 기록은 보존하고, 용도에 맞는 항목만 추천·가격·사진에 사용합니다.</b><small>결제·포인트·상품권은 지출·사진·가격 추적에서 자동 분리하며, 애매한 실물 품목만 검토 대상으로 남겨요.</small></div><div class="qstats"><div><b>${A.quality.recommendable}</b><span>재구매 후보</span></div><div><b>${A.quality.priceTrackable}</b><span>가격·사진 대상</span></div><div><b>${A.quality.excluded}</b><span>정산·충전 분리</span></div><div><b>${A.quality.review}</b><span>확인 필요</span></div></div></section>
       ${A.notes.length ? `<div class="notes">${A.notes.map(n => `<button class="note ${n.tone}" ${n.key ? `data-k="${esc(n.key)}"` : n.cat ? `data-cat="${esc(n.cat)}"` : n.mall ? `data-plat="${esc(W('platOf')(n.mall))}"` : n.m ? `data-m="${esc(n.m)}"` : ''}><span class="nl"><span class="ni" style="color:${TN[n.tone]}">${svg(n.icon, 16)}</span>${esc(n.text)}</span><b style="color:${TN[n.tone]}">${esc(n.big)}</b></button>`).join('')}</div>` : ''}
-      ${(() => { const etc = A.items.filter(i => i.cat === '기타' && !st.cats[i.key]); if (!etc.length) return ''; const MAINS = I.MAIN ? I.MAIN.filter(m => m !== '기타') : ['식품','영양제','생활용품','육아','반려동물','뷰티','주방','패션','캠핑·레저','가전·디지털']; const show = etc.slice(0, catMore ? 30 : 4);
-        return `<section class="mcat"><div class="mch"><b>분류 못 한 품목</b><i class="n">${etc.length}</i><small>눌러서 바로 분류</small>${W('aiOK') && W('aiOK')() ? `<button class="link" id="aiCat">${svg('sparkles', 14)} AI 분류</button>` : ''}</div><small id="aiCatMsg"></small>
+      ${(() => { const etc = A.quality.reviewItems.filter(i => !st.cats[i.key]); if (!etc.length) return ''; const MAINS = I.MAIN ? I.MAIN.filter(m => m !== '기타' && m !== '정산·결제') : ['식품','영양제','생활용품','홈·인테리어','가구','문구·완구','문화·취미','디지털·서비스']; const show = etc.slice(0, catMore ? 30 : 4);
+        return `<section class="mcat"><div class="mch"><b>확인이 필요한 실물 품목</b><i class="n">${etc.length}</i><small>이 분류는 추천·가격 추적의 신뢰도를 높여요</small>${W('aiOK') && W('aiOK')() ? `<button class="link" id="aiCat">${svg('sparkles', 14)} AI 분류</button>` : ''}</div><small id="aiCatMsg"></small>
         ${show.map(it => `<div class="mcr">${W('thumb')(it, 36)}<b>${esc(it.name)}</b><div class="mcc">${MAINS.map(m => `<button data-mc="${esc(it.key)}" data-m2="${esc(m)}">${esc(m)}</button>`).join('')}</div></div>`).join('')}
         ${etc.length > show.length ? `<button class="link" id="catMore">더보기 +${Math.min(26, etc.length - show.length)}</button>` : ''}</section>`; })()}
       <div class="kpis">${kpi.map(([ic, l, v, s], i) => `<div class="kpi" ${i < 2 ? `data-m="${A.monthly[A.monthly.length - 1].m}"` : 'data-go="prod"'}><span class="kl"><span class="ki">${svg(ic, 16)}</span>${l}</span><b>${v}</b><small>${s}</small></div>`).join('')}</div>
@@ -70,7 +71,7 @@
         <section class="pn"><h3>${svg('calendar', 18)} 달마다 지출 <small>진한 막대 = 많이 쓰는 3개월</small></h3>${moyBars(A.moy)}</section>
         <section class="pn"><h3>${svg('swap', 18)} 작년과 비교 <small>최근 12개월 vs 그 전 12개월</small></h3><div class="yoy">${A.catYoy.filter(c => c.cur || c.prev).sort((a, b) => b.cur - a.cur).slice(0, 7).map(c => `<div class="yr" data-cat="${c.cat}"><span class="ci" style="color:${c.color};background:${c.color}1A">${icon(c.cat, 14)}</span><span>${c.cat}</span><span class="yb"><i style="width:${(c.prev / Math.max(1, ...A.catYoy.map(x => Math.max(x.cur, x.prev))) * 100).toFixed(1)}%" class="p"></i><i style="width:${(c.cur / Math.max(1, ...A.catYoy.map(x => Math.max(x.cur, x.prev))) * 100).toFixed(1)}%;background:${c.color}"></i></span>${pctTag(c.pct)}</div>`).join('')}</div></section>
         <section class="pn wide"><h3>${svg('star', 18)} 자주 산 것</h3><div class="tops">${A.top.map(it => `<div class="tp" data-k="${esc(it.key)}">${thumb(it, 76)}<span class="badge">${it.count}회</span><b>${esc(it.name)}</b><small>${it.sub} · ${won(it.spend)}</small></div>`).join('')}</div></section>
-        <section class="pn wide"><h3>${svg('cycle', 18)} 반복 구매 타임라인 <small>점 하나 = 한 번 구매</small></h3>${cycles(A.items, A.today)}</section>
+        <section class="pn wide"><h3>${svg('cycle', 18)} 반복 구매 타임라인 <small>재구매 추천 가능 품목 · 점 하나 = 한 번 구매</small></h3>${cycles(A.repurchaseItems, A.today)}</section>
         <section class="pn wide"><h3>${svg('tag', 18)} 내가 낸 가격 변화 <small>처음 산 가격 → 최근 가격 (1개 기준)</small></h3>${A.changes.length ? `<div class="chg">${A.changes.slice(0, 10).map(c => `<div class="cg" data-k="${esc(c.key)}">${thumb(c, 40)}<span class="cn">${esc(c.name)}<small>${c.from.slice(2).replace(/-/g, '.')} → ${c.to.slice(2).replace(/-/g, '.')}</small></span><span class="pp">${W('fmt')(c.p0)} → <b>${W('fmt')(c.p1)}</b></span>${pctTag(c.pct)}${c.shrink ? `<span class="shr">용량 ${c.shrink}%↓</span>` : ''}</div>`).join('')}</div>` : '<p class="muted">같은 물건을 가격과 함께 두 번 이상 사면 보여요</p>'}</section>
         <section class="pn wide"><h3>${svg('search', 18)} 작년 이맘때 vs 지금 최저가 <small>다나와·에누리·쿠팡·네이버 · 확장이 내 브라우저에서 하루 한 번</small></h3>${A.market.length ? `<div class="mkt">${A.market.slice(0, 12).map(c => `<div class="mk" data-k="${esc(c.key)}">${thumb(c, 52)}<div class="mkm"><b>${esc(c.name)}</b><small>${c.paidDate.slice(2).replace(/-/g, '.')} ${W('fmt')(c.paid)}${c.gap ? ` · ${c.gap}일마다` : ''}</small><div class="srcs">${c.sources.map((x, i) => `<span class="src${i ? '' : ' min'}" title="${esc(x.title || '')}">${esc(x.src)} ${W('fmt')(x.price)}</span>`).join('')}</div></div><div class="mkr">${pctTag(c.pct)}${c.unitPct != null && c.unitLabel ? `<small>${c.unitLabel} ${c.unitPct > 0 ? '+' : ''}${c.unitPct}%</small>` : ''}${c.shrink ? `<span class="shr">용량 ${c.shrink}%↓</span>` : ''}</div></div>`).join('')}</div>` : '<p class="muted">확장이 가격을 모으기 시작하면 보여요 (매일 1회, 자주 사는 품목 60개)</p>'}${A.shrink.length || A.market.some(m => m.shrink) ? `<p class="shrnote">${svg('alert', 15)} 용량이 줄어든 품목 ${A.shrink.length + A.market.filter(m => m.shrink).length}개</p>` : ''}</section>
       </div>`;
@@ -79,7 +80,7 @@
     el.querySelectorAll('[data-p]').forEach(n => n.onclick = () => { const p = n.dataset.p || null; if (!p && !W('plat')()) return; W('setPlat')(p || W('plat')()); });
     el.querySelectorAll('[data-go]').forEach(n => n.onclick = () => W('go')(n.dataset.go));
     el.querySelectorAll('[data-m]').forEach(n => n.onclick = () => month(n.dataset.m));
-    const ai = document.getElementById('aiCat'); if (ai) ai.onclick = () => aiCats(A.items.filter(i => i.cat === '기타' && !st.cats[i.key]));
+    const ai = document.getElementById('aiCat'); if (ai) ai.onclick = () => aiCats(A.quality.reviewItems.filter(i => !st.cats[i.key]));
     el.querySelectorAll('[data-mc]').forEach(b => b.onclick = () => { st.cats[b.dataset.mc] = b.dataset.m2 + '/' + b.dataset.m2; W('saveStore')(); W('toast')(`${b.dataset.m2}(으)로 분류했어요`); W('refreshAll')(); render(); });
     const cm = document.getElementById('catMore'); if (cm) cm.onclick = () => { catMore = true; render(); };
     const el2 = document.getElementById('etcList'); if (el2) el2.onclick = () => W('filterCat')('기타');
@@ -88,7 +89,7 @@
   // 로컬 AI(Ollama): 기타 품목만 30개씩 보내 분류. 결과는 내 브라우저에 저장, 직접 바꾼 분류가 우선
   // 월 막대 → 그 달에 산 것 (사진 + 누르면 제품 상세)
   function month(m) {
-    const d = W('data')(), esc = W('esc'), fmt = W('fmt'), rows = I.insights(d.orders, { today: d.today, cats: W('store')().cats || {}, aliases: d.aliases, prices: d.prices }).items.flatMap(it => it.list.filter(o => o.date.slice(0, 7) === m).map(o => ({ ...o, key: it.key, img: it.img, cat: it.cat }))).sort((a, b) => b.price - a.price);
+    const d = W('data')(), esc = W('esc'), fmt = W('fmt'), rows = I.insights(d.orders, { today: d.today, cats: W('store')().cats || {}, aliases: d.aliases, prices: d.prices }).analysisItems.flatMap(it => it.list.filter(o => o.date.slice(0, 7) === m).map(o => ({ ...o, key: it.key, img: it.img, cat: it.cat }))).sort((a, b) => b.price - a.price);
     const tot = rows.reduce((a, o) => a + (o.price || 0), 0);
     document.getElementById('sheetBody').innerHTML = `<button class="x" id="x">×</button><h2>${+m.slice(0, 4)}년 ${+m.slice(5)}월 · ${won(tot)} · ${rows.length}건</h2><div class="mlist">${rows.map(o => `<button class="mrow" data-k="${esc(o.key)}">${W('thumb')(o, 48)}<span><b>${esc(o.name)}</b><small>${W('mallChip')(o.mall)} ${o.date.slice(5).replace('-', '.')}</small></span><b>${fmt(o.price)}</b></button>`).join('')}</div>`;
     const sh = document.getElementById('sheet'); sh.classList.add('on'); document.getElementById('x').onclick = () => sh.classList.remove('on');

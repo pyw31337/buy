@@ -51,7 +51,7 @@
     const L = root.LetsBuy, I = root.LetsBuyInsights; opt = opt || {};
     const all = L.analyze(d.orders, d.today, d.aliases, { all: true }).filter(it => !opt.ignored?.[it.key]);
     const A = I ? I.insights(d.orders, { today: d.today, cats: opt.cats || {}, aliases: d.aliases, prices: d.prices }) : null;
-    return all.map(it => { const m = model(it, d.prices || {}, d.today, d.plat); const c = A && A.catOfKey[it.key]; return { ...m, cat: c ? c.main : '기타', sub: c ? c.sub : '' }; }).sort((a, b) => b.score - a.score);
+    return all.map(it => { const m = model(it, d.prices || {}, d.today, d.plat), c = A && A.catOfKey[it.key], profile = c?.profile || L.itemProfile(it.name); return { ...m, cat: c ? c.main : '기타', sub: c ? c.sub : '', profile }; }).sort((a, b) => b.score - a.score);
   }
   const api = { model, build, pricesOf };
   if (typeof module !== 'undefined') { module.exports = api; return; }
@@ -91,12 +91,14 @@
     const d = W('data')(), esc = W('esc'), svg = W('svg');
     if (!d.orders.length) { el.innerHTML = chips(d) + '<div class="empty">이 플랫폼 구매 기록이 없어요</div>'; bind(el); return; }
     const all = build(d, { cats: W('store')().cats, ignored: W('store')().ignored }); lastList = all;
-    const rep = all.filter(p => p.count >= 2), base = view === 'rep' && rep.length ? rep : all;
+    // “살 때”는 반복 구매가 가능한 실물 품목만 보여 준다. 문화·가구·디지털·결제는 구매 기록에서 보존한다.
+    const eligible = all.filter(p => p.profile && p.profile.recommend);
+    const rep = eligible.filter(p => p.count >= 2), base = view === 'rep' && rep.length ? rep : eligible;
     const list = base.filter(p => !catF || p.cat === catF);
     const nb = list.filter(p => p.verdict.k === 'buy').length, ns = list.filter(p => p.verdict.k === 'soon').length, nw = list.filter(p => p.verdict.k === 'wait').length;
     const cats = [...new Set(base.map(p => p.cat))];
     el.innerHTML = `${chips(d)}${W('photoBar')()}
-      <div class="phead"><div class="ptl"><h1>${W('plat')() ? `${W('logo')(W('plat')(), 28)} ${esc(W('plat')())}에서 ` : ''}지금 살 것</h1>${W('liveTag')()}</div>
+      <div class="phead"><div class="ptl"><h1>${W('plat')() ? `${W('logo')(W('plat')(), 28)} ${esc(W('plat')())}에서 ` : ''}지금 살 것</h1><small class="policyHint">반복 구매 가능한 실물 품목만 · 결제·상품권·디지털·내구재는 구매 기록에서 관리</small>${W('liveTag')()}</div>
         <div class="vsum"><span style="--v:${VC.buy}"><b>${nb}</b>지금 사세요</span><span style="--v:${VC.soon}"><b>${ns}</b>곧 떨어져요</span><span style="--v:${VC.wait}"><b>${nw}</b>기다리세요</span></div></div>
       <div class="ctabs"><button class="ct ${catF ? '' : 'on'}" data-c=""><span>전체</span><i class="n">${base.length}</i></button>${cats.map(c => `<button class="ct ${catF === c ? 'on' : ''}" data-c="${esc(c)}"><span>${esc(c)}</span><i class="n">${base.filter(p => p.cat === c).length}</i></button>`).join('')}<span class="sp"></span><button class="ct" id="viewT">${view === 'rep' ? '1번 산 것도 보기' : '자주 산 것만'}</button></div>
       <div class="pgrid">${list.slice(0, 120).map(card).join('') || '<div class="empty">없어요</div>'}</div>`;

@@ -4,6 +4,15 @@
   const B = '(?![가-힣])';
   const R = (s, f) => new RegExp(s.replace(/~/g, B), f);
   const DICT = [
+    ['정산·결제', '포인트·할인', R('포인트|적립금|마일리지|쿠폰|배송비|수수료|결제\\s*금액|할인\\s*금액')],
+    ['정산·결제', '상품권·충전', R('상품권|기프트\\s*카드|금액권|문화상품권|도서문화상품권|해피머니|컬쳐랜드|캐시\\s*충전|충전\\s*(권|금)')],
+    ['디지털·서비스', '디지털 콘텐츠', R('전자책|e-?book|이북|다운로드|디지털\\s*(콘텐츠|상품)|vod|ott|스트리밍|소프트웨어|라이선스|게임\\s*(아이템|dlc|스킨|패스|코드)|모바일\\s*(쿠폰|이용권)', 'i')],
+    ['디지털·서비스', '구독·멤버십', R('정기\\s*(구독|배송)|멤버십|월\\s*정액|구독권')],
+    ['문화·취미', '도서·음반·굿즈', R('도서|책~|소설|에세이|만화책|앨범|음반|lp~|cd~|dvd|블루레이|굿즈|피규어|프라모델|퍼즐|보드게임|악기', 'i')],
+    ['문구·완구', '문구', R('문구|노트|다이어리|볼펜|연필|형광펜|마커|스티커|색연필|크레파스|스케치북|필통|바인더')],
+    ['문구·완구', '완구·놀이', R('장난감|레고|블록~|인형|완구|rc카|미니카', 'i')],
+    ['가구', '가구', R('소파|침대|매트리스|식탁|책상|사무용\\s*의자|의자|서랍장|수납장|옷장|장롱|거실장|화장대|가구')],
+    ['홈·인테리어', '인테리어·조명', R('인테리어|조명|커튼|블라인드|러그|카펫|벽지|시트지|액자|거울|화병|캔들\\s*홀더')],
     ['식품', '음료', R('비타500|박카스|오로나민|비타민워터|파워에이드|토레타|옥수수수염차|헛개|컨디션|여명808|모닝케어')],
     ['생활용품', '세탁·청소·생활', R('세탁\\s*캡슐|캡슐\\s*세제|식기세척기\\s*세제|피지|테크|퍼실|다우니|샤프란|피죤|아우라|비트~|리큐|한입세제|스파크|엑스트라|유한락스|홈스타|매직블럭|물먹는하마|산도깨비|에프킬라|홈매트')],
     ['영양제', '영양제', R('비타민|오메가|유산균|프로바이오|프리바이오|포스트바이오|루테인|마그네슘|밀크씨슬|밀크시슬|홍삼|정관장|영양제|콜라겐|철분|아연|칼슘|멀티비타|글루코사민|프로폴리스|엽산|코엔자임|코큐텐|크릴|락토핏|락토|종합영양|오쏘몰|센트룸|덴마크유산균|비오틴|쏘팔메토|종근당|고려은단|뉴트리원|솔가|나우푸드|NOW~|닥터스베스트|얼라이브|GNC|뉴트리코어|에스더포뮬러|여에스더|안국|일양|광동|경남제약|레모나|nmn|알티지|rtg|침향|녹용|흑마늘|보스웰리아|MSM|단백질\\s*보충|프로틴|wpi|wpc|bcaa|크레아틴|비타~|아르기닌|가르시니아|다이어트\\s*보조|효소~|식이섬유|차전자피|글루타치온|히알루론|석류\\s*콜라겐|어린이\\s*비타|키즈\\s*유산균', 'i')],
@@ -38,12 +47,14 @@
     ['식품', '선물·기타식품', R('선물세트|명절|추석|설\\s*선물|한과|정과|식품|먹거리|간식\\s*세트|과일\\s*세트')],
   ];
   // 쇼핑 검색 결과가 알려준 분류(네이버 카테고리) → 내 분류. 사전에 없는 상품도 AI 없이 분류
-  const SHOPCAT = [[/식품|농산물|축산|수산|음료|건강식품/, '식품', '식품'], [/출산|육아|유아/, '육아', '육아용품'], [/화장품|미용|뷰티/, '뷰티', '화장품'], [/반려|애완/, '반려동물', '반려동물'], [/디지털|가전|컴퓨터|휴대폰|카메라/, '가전·디지털', '가전·디지털'], [/주방/, '주방', '주방용품'], [/패션|의류|잡화|신발|가방|쥬얼리/, '패션', '패션'], [/스포츠|레저|캠핑|자동차/, '캠핑·레저', '캠핑·레저'], [/생활|건강|가구|인테리어|문구|완구/, '생활용품', '세탁·청소·생활']];
+  const SHOPCAT = [[/도서|음반|공연|취미/, '문화·취미', '도서·음반·굿즈'], [/가구/, '가구', '가구'], [/인테리어|조명|홈데코/, '홈·인테리어', '인테리어·조명'], [/문구/, '문구·완구', '문구'], [/완구|게임/, '문구·완구', '완구·놀이'], [/식품|농산물|축산|수산|음료|건강식품/, '식품', '식품'], [/출산|육아|유아/, '육아', '육아용품'], [/화장품|미용|뷰티/, '뷰티', '화장품'], [/반려|애완/, '반려동물', '반려동물'], [/디지털|가전|컴퓨터|휴대폰|카메라/, '가전·디지털', '가전·디지털'], [/주방/, '주방', '주방용품'], [/패션|의류|잡화|신발|가방|쥬얼리/, '패션', '패션'], [/스포츠|레저|캠핑|자동차/, '캠핑·레저', '캠핑·레저'], [/생활|건강/, '생활용품', '세탁·청소·생활']];
   function shopCat(c) { if (!c) return null; const s = String(c); for (const [re, m, sub] of SHOPCAT) if (re.test(s.split('>')[0]) || re.test(s)) return { main: m, sub: /건강식품/.test(s) ? '영양제' : sub, main2: /건강식품/.test(s) ? '영양제' : m }; return null; }
-  const MAIN = ['식품', '영양제', '생활용품', '육아', '반려동물', '뷰티', '주방', '패션', '캠핑·레저', '가전·디지털', '기타'];
-  const COLORS = { '식품': '#FF7A45', '영양제': '#9B59F6', '생활용품': '#3B82F6', '육아': '#F472B6', '반려동물': '#B45309', '뷰티': '#EC4899', '주방': '#14B8A6', '패션': '#111827', '캠핑·레저': '#16A34A', '가전·디지털': '#64748B', '기타': '#C4C2BC' };
+  const MAIN = ['식품', '영양제', '생활용품', '홈·인테리어', '가구', '문구·완구', '문화·취미', '디지털·서비스', '육아', '반려동물', '뷰티', '주방', '패션', '캠핑·레저', '가전·디지털', '정산·결제', '기타'];
+  const COLORS = { '식품': '#FF7A45', '영양제': '#9B59F6', '생활용품': '#3B82F6', '홈·인테리어': '#0EA5A8', '가구': '#8B5E3C', '문구·완구': '#F59E0B', '문화·취미': '#7C5CE0', '디지털·서비스': '#475569', '육아': '#F472B6', '반려동물': '#B45309', '뷰티': '#EC4899', '주방': '#14B8A6', '패션': '#111827', '캠핑·레저': '#16A34A', '가전·디지털': '#64748B', '정산·결제': '#94A3B8', '기타': '#C4C2BC' };
   function categorize(name, override) {
     if (override) { const [m, s] = String(override).split('/'); return { main: m, sub: s || m }; }
+    const p = root.LetsBuy && root.LetsBuy.profileWithCategory && root.LetsBuy.profileWithCategory(name, override);
+    if (p && p.category) return { main: p.category, sub: p.sub || p.category, by: 'profile' };
     const n = String(name || '');
     for (const [m, s, re] of DICT) if (re.test(n)) return { main: m, sub: s };
     return { main: '기타', sub: '기타' };
@@ -80,37 +91,44 @@
     const groups = L ? L.group(os, opts.aliases) : os.map(o => ({ key: o.name, list: [o], alias: o.name }));
     const catOfKey = {}, rows = [];
     const pr = opts.prices || {};
-    for (const g of groups) { const nm = g.list[g.list.length - 1].name; let c = categorize(nm, cats[g.key]);
-      if (c.main === '기타') { const pe = pr[g.key] || pr[nm] || [], sc = shopCat((pe.find(x => x.cat) || {}).cat); if (sc) c = { main: sc.main2, sub: sc.sub, by: 'shop' }; } catOfKey[g.key] = c; for (const o of g.list) rows.push({ ...o, key: g.key, cat: c.main, sub: c.sub, spend: o.price || 0 }); }
+    const profileOf = (name, override) => L && L.profileWithCategory ? L.profileWithCategory(name, override) : { entity: 'physical', behavior: 'durable', confidence: .5, includeSpend: true, priceTrack: true, photoSearch: true, recommend: false, reason: '분석 기준을 확인 중이에요' };
+    for (const g of groups) { const nm = g.list[g.list.length - 1].name, profile = profileOf(nm, cats[g.key]); let c = categorize(nm, cats[g.key]);
+      if (c.main === '기타') { const pe = pr[g.key] || pr[nm] || [], sc = shopCat((pe.find(x => x.cat) || {}).cat); if (sc) c = { main: sc.main2, sub: sc.sub, by: 'shop' }; }
+      catOfKey[g.key] = { ...c, profile };
+      for (const o of g.list) rows.push({ ...o, key: g.key, cat: c.main, sub: c.sub, spend: o.price || 0, profile });
+    }
+    // 결제·할인·충전은 주문 원장에는 남되 소비/추천/가격 분석에서는 분리한다.
+    const spendRows = rows.filter(o => o.profile.includeSpend !== false);
     // 월별 (최근 24개월)
     const end = ym(today), months = []; for (let i = 23; i >= 0; i--) months.push(addM(end, -i));
-    const monthly = months.map(m => { const r = rows.filter(o => ym(o.date) === m); return { m, spend: sum(r.map(o => o.spend)), count: r.length, orders: new Set(r.map(o => o.date + o.mall)).size }; });
+    const monthly = months.map(m => { const r = spendRows.filter(o => ym(o.date) === m); return { m, spend: sum(r.map(o => o.spend)), count: r.length, orders: new Set(r.map(o => o.date + o.mall)).size }; });
     // 카테고리
-    const byCat = MAIN.map(c => { const r = rows.filter(o => o.cat === c); return { cat: c, color: COLORS[c], spend: sum(r.map(o => o.spend)), count: r.length, items: new Set(r.map(o => o.key)).size }; }).filter(x => x.count);
-    const subs = {}; rows.forEach(o => { const k = o.cat + '/' + o.sub; subs[k] = subs[k] || { cat: o.cat, sub: o.sub, spend: 0, count: 0 }; subs[k].spend += o.spend; subs[k].count++; });
+    const byCat = MAIN.map(c => { const r = spendRows.filter(o => o.cat === c); return { cat: c, color: COLORS[c], spend: sum(r.map(o => o.spend)), count: r.length, items: new Set(r.map(o => o.key)).size }; }).filter(x => x.count);
+    const subs = {}; spendRows.forEach(o => { const k = o.cat + '/' + o.sub; subs[k] = subs[k] || { cat: o.cat, sub: o.sub, spend: 0, count: 0 }; subs[k].spend += o.spend; subs[k].count++; });
     // 쇼핑몰
-    const mallMap = {}; rows.forEach(o => { const m = mallMap[o.mall] = mallMap[o.mall] || { mall: o.mall, spend: 0, count: 0 }; m.spend += o.spend; m.count++; });
+    const mallMap = {}; spendRows.forEach(o => { const m = mallMap[o.mall] = mallMap[o.mall] || { mall: o.mall, spend: 0, count: 0 }; m.spend += o.spend; m.count++; });
     // 시즌 히트맵: 대분류·소분류 × 1~12월 (구매 건수)
     const heatCats = Object.values(subs).sort((a, b) => b.count - a.count).slice(0, 12);
-    const heat = heatCats.map(s => ({ label: s.sub, cat: s.cat, color: COLORS[s.cat], v: Array.from({ length: 12 }, (_, i) => rows.filter(o => o.sub === s.sub && o.cat === s.cat && +o.date.slice(5, 7) === i + 1).length) }));
+    const heat = heatCats.map(s => ({ label: s.sub, cat: s.cat, color: COLORS[s.cat], v: Array.from({ length: 12 }, (_, i) => spendRows.filter(o => o.sub === s.sub && o.cat === s.cat && +o.date.slice(5, 7) === i + 1).length) }));
     // 장바구니(같은 날·같은 쇼핑몰 = 한 주문)
-    const baskets = {}; rows.forEach(o => { const k = o.orderNo || o.date + o.mall; baskets[k] = (baskets[k] || 0) + o.spend; });
+    const baskets = {}; spendRows.forEach(o => { const k = o.orderNo || o.date + o.mall; baskets[k] = (baskets[k] || 0) + o.spend; });
     const bv = Object.values(baskets).filter(v => v > 0);
     // 전년 비교: 최근 12개월 vs 그 전 12개월
     const cur = monthly.slice(12), prev = monthly.slice(0, 12);
     const yoy = { cur: sum(cur.map(m => m.spend)), prev: sum(prev.map(m => m.spend)), curN: sum(cur.map(m => m.count)), prevN: sum(prev.map(m => m.count)) };
     yoy.pct = yoy.prev ? Math.round((yoy.cur - yoy.prev) / yoy.prev * 100) : null;
-    const c0 = months[12], catYoy = byCat.map(c => { const a = sum(rows.filter(o => o.cat === c.cat && ym(o.date) >= c0).map(o => o.spend)), b = sum(rows.filter(o => o.cat === c.cat && ym(o.date) < c0 && ym(o.date) >= months[0]).map(o => o.spend)); return { cat: c.cat, color: c.color, cur: a, prev: b, pct: b ? Math.round((a - b) / b * 100) : null }; });
+    const c0 = months[12], catYoy = byCat.map(c => { const a = sum(spendRows.filter(o => o.cat === c.cat && ym(o.date) >= c0).map(o => o.spend)), b = sum(spendRows.filter(o => o.cat === c.cat && ym(o.date) < c0 && ym(o.date) >= months[0]).map(o => o.spend)); return { cat: c.cat, color: c.color, cur: a, prev: b, pct: b ? Math.round((a - b) / b * 100) : null }; });
     // 피크 달
     const peaks = monthly.filter(m => m.spend).slice().sort((a, b) => b.spend - a.spend).slice(0, 3);
-    const moy = Array.from({ length: 12 }, (_, i) => ({ mo: i + 1, spend: sum(rows.filter(o => +o.date.slice(5, 7) === i + 1).map(o => o.spend)), count: rows.filter(o => +o.date.slice(5, 7) === i + 1).length }));
+    const moy = Array.from({ length: 12 }, (_, i) => ({ mo: i + 1, spend: sum(spendRows.filter(o => +o.date.slice(5, 7) === i + 1).map(o => o.spend)), count: spendRows.filter(o => +o.date.slice(5, 7) === i + 1).length }));
     // 많이 산 품목
-    const items = groups.map(g => { const l = g.list.slice().sort((a, b) => a.date < b.date ? -1 : 1); return { key: g.key, name: l[l.length - 1].name, cat: catOfKey[g.key].main, sub: catOfKey[g.key].sub, count: new Set(l.map(o => o.date)).size, spend: sum(l.map(o => o.price || 0)), img: (l.slice().reverse().find(o => o.img) || {}).img || null, dates: [...new Set(l.map(o => o.date))], list: l }; });
-    const top = items.slice().sort((a, b) => b.count - a.count || b.spend - a.spend).slice(0, 12);
-    const topSpend = items.slice().sort((a, b) => b.spend - a.spend).slice(0, 8);
+    const items = groups.map(g => { const l = g.list.slice().sort((a, b) => a.date < b.date ? -1 : 1), profile = catOfKey[g.key].profile; return { key: g.key, name: l[l.length - 1].name, cat: catOfKey[g.key].main, sub: catOfKey[g.key].sub, profile, count: new Set(l.map(o => o.date)).size, spend: profile.includeSpend === false ? 0 : sum(l.map(o => o.price || 0)), img: (l.slice().reverse().find(o => o.img) || {}).img || null, dates: [...new Set(l.map(o => o.date))], list: l }; });
+    const analysisItems = items.filter(i => i.profile.includeSpend !== false), repurchaseItems = analysisItems.filter(i => i.profile.recommend);
+    const top = analysisItems.slice().sort((a, b) => b.count - a.count || b.spend - a.spend).slice(0, 12);
+    const topSpend = analysisItems.slice().sort((a, b) => b.spend - a.spend).slice(0, 8);
     // 가격 변화·슈링크플레이션 (내가 낸 가격 기준)
     const changes = [];
-    for (const it of items) {
+    for (const it of analysisItems.filter(it => it.profile.priceTrack)) {
       const l = it.list.filter(o => o.price); if (l.length < 3) continue;
       const first = l[0], last = l[l.length - 1]; if (first.date === last.date) continue;
       const u0 = unitPrice(first.name, first.price, first.qty), u1 = unitPrice(last.name, last.price, last.qty);
@@ -122,7 +140,7 @@
     // 시장가 비교(확장이 내 브라우저에서 모은 오늘 최저가): 작년 이맘때 낸 가격 vs 지금
     const market = [];
     const prices = opts.prices || {};
-    for (const it of items) {
+    for (const it of analysisItems.filter(it => it.profile.priceTrack)) {
       const pk = prices[it.key] ? it.key : Object.keys(prices).find(k => it.name.includes(k) || k.includes(it.name)); const p = pk && prices[pk]; if (!p || !p.length) continue;
       const lastDay = p.reduce((m, x) => x.date > m ? x.date : m, ''), bySrc = {};
       for (const x of p) { if (day(lastDay) - day(x.date) > 3) continue; const k = x.src || String(x.mall || '').replace(/\s*최저$/, ''); if (!bySrc[k] || x.date >= bySrc[k].date) bySrc[k] = { src: k, price: x.price, title: x.title, date: x.date }; }
@@ -136,8 +154,12 @@
       const ds = it.dates.slice().sort(), gap = ds.length > 1 ? Math.round((day(ds[ds.length - 1]) - day(ds[0])) / (ds.length - 1)) : null;
       market.push({ key: it.key, name: it.name, img: it.img, cat: it.cat, paid, paidDate: ref.date, now: now.price, nowSrc: now.src, nowDate: now.date, sources: srcs, pct: Math.round((now.price - paid) / paid * 100), unitPct: u0 && u1 && u0.label === u1.label ? Math.round((u1.value - u0.value) / u0.value * 100) : null, unitLabel: u1 && u1.label, shrink, s0, s1, gap, yearAgo: !!near.length });
     }
-    const out = { today, months, monthly, byCat, subs: Object.values(subs).sort((a, b) => b.spend - a.spend), malls: Object.values(mallMap).sort((a, b) => b.spend - a.spend), heat, basket: { avg: bv.length ? Math.round(sum(bv) / bv.length) : 0, n: bv.length, max: bv.length ? Math.max(...bv) : 0 }, yoy, catYoy, peaks, moy, top, topSpend, items, changes: changes.filter(c => Math.abs(c.pct) <= 100).sort((a, b) => (b.shrink > 0) - (a.shrink > 0) || Math.abs(b.pct) - Math.abs(a.pct)), shrink: changes.filter(c => c.shrink > 0), market: market.sort((a, b) => b.pct - a.pct), total: { backN: bo.removed.length, backSpend: sum(bo.removed.map(o => o.price || 0)), spend: sum(rows.map(o => o.spend)), count: rows.length, items: items.length, priced: rows.filter(o => o.spend).length }, catOfKey };
-    out.notes = notesOf(out, rows); return out;
+    const reviewItems = items.filter(i => i.profile.confidence < .75 && i.profile.entity === 'physical');
+    // 일부 결제 행은 파서의 상품명 정제 단계에서 이미 빠진다. 그래도 품질 현황에는 분리한 사실을 남긴다.
+    const rawExcluded = (orders || []).filter(o => o && o.date && o.date <= today && profileOf(o.name).includeSpend === false);
+    const excludedKeys = new Set([...items.filter(i => i.profile.includeSpend === false).map(i => i.key), ...rawExcluded.map(o => L && L.keyOf ? L.keyOf(o.name) : o.name)]);
+    const out = { today, months, monthly, byCat, subs: Object.values(subs).sort((a, b) => b.spend - a.spend), malls: Object.values(mallMap).sort((a, b) => b.spend - a.spend), heat, basket: { avg: bv.length ? Math.round(sum(bv) / bv.length) : 0, n: bv.length, max: bv.length ? Math.max(...bv) : 0 }, yoy, catYoy, peaks, moy, top, topSpend, items, analysisItems, repurchaseItems, changes: changes.filter(c => Math.abs(c.pct) <= 100).sort((a, b) => (b.shrink > 0) - (a.shrink > 0) || Math.abs(b.pct) - Math.abs(a.pct)), shrink: changes.filter(c => c.shrink > 0), market: market.sort((a, b) => b.pct - a.pct), total: { backN: bo.removed.length, backSpend: sum(bo.removed.map(o => o.price || 0)), spend: sum(spendRows.map(o => o.spend)), count: spendRows.length, items: analysisItems.length, priced: spendRows.filter(o => o.spend).length }, quality: { ledgerItems: items.length, excluded: excludedKeys.size, recommendable: repurchaseItems.length, priceTrackable: analysisItems.filter(i => i.profile.priceTrack).length, review: reviewItems.length, reviewItems }, catOfKey };
+    out.notes = notesOf(out, spendRows); return out;
   }
   const short = n => { n = String(n).replace(/\[[^\]]*\]|\([^)]*\)/g, ' ').trim(); const w = n.split(/\s+/); return w.slice(0, 3).join(' ').slice(0, 16); };
   const man = n => n >= 1e4 ? Math.round(n / 1e4).toLocaleString() + '만원' : Math.round(n).toLocaleString() + '원';

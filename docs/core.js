@@ -386,6 +386,33 @@
   /** 공유 썸네일 이름표: 정규화한 제품 키의 SHA-256 앞 32자리 (이름 외 정보 없음) */
   async function thumbHash(key) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(key).normalize('NFC').toLowerCase().trim())); return [...new Uint8Array(b)].slice(0, 16).map(x => x.toString(16).padStart(2, '0')).join(''); }
   const THUMBS = 'https://letsbuy-thumbs.pyw213.workers.dev';
-  const api = { THUMBS, thumbHash, findImg, imgSrc, parseSearch, bestMatch, mailKind, FAILS, backouts, parseEml, imgBlockItems, orderBlockItems, tableItems, labelItems, normName, decodeQP, isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won };
+  // 이름만 비슷한 결제 행을 실물 상품으로 다루면 가격·사진·재구매 추천이 모두 오염된다.
+  // 원본 주문은 보존하고, 이 정책은 분석·검색의 자격만 결정한다.
+  function itemProfile(name) {
+    const n = clean(name || ''), s = n.toLowerCase();
+    const base = { entity: 'physical', behavior: 'durable', category: null, sub: null, confidence: .55, includeSpend: true, priceTrack: true, photoSearch: true, recommend: false, reason: '실물 상품이지만 소모 주기를 확인하지 못했어요' };
+    if (/(?:포인트|적립금|마일리지|쿠폰|할인).{0,16}(?:사용|적용|차감|적립|할인|결제)|(?:배송비|수수료|결제\s*금액|주문\s*금액|상품\s*금액|할인\s*금액|포인트\s*사용|적립금\s*사용)$/i.test(n)) return { entity: 'payment', behavior: 'settlement', category: '정산·결제', sub: '포인트·할인', confidence: .99, includeSpend: false, priceTrack: false, photoSearch: false, recommend: false, reason: '상품이 아닌 결제·할인 정산 항목이에요' };
+    if (/(?:상품권|기프트\s*카드|금액권|문화상품권|도서문화상품권|해피머니|컬쳐랜드|캐시\s*충전|충전\s*(?:권|금)|게임\s*(?:캐시|머니))/i.test(n)) return { entity: 'stored_value', behavior: 'financial', category: '정산·결제', sub: '상품권·충전', confidence: .96, includeSpend: false, priceTrack: false, photoSearch: false, recommend: false, reason: '상품 소비가 아닌 상품권·충전금 흐름이에요' };
+    if (/(?:전자책|e-?book|이북|다운로드|디지털\s*(?:콘텐츠|상품)|vod|ott|스트리밍|음원\s*(?:이용권|다운로드)|소프트웨어|라이선스|앱\s*(?:이용권|결제)|게임\s*(?:아이템|dlc|스킨|패스|코드)|모바일\s*(?:쿠폰|이용권))/i.test(s)) return { entity: 'digital', behavior: 'one_off', category: '디지털·서비스', sub: '디지털 콘텐츠', confidence: .93, includeSpend: true, priceTrack: false, photoSearch: false, recommend: false, reason: '디지털 콘텐츠는 실물 재구매·사진 검색 대상이 아니에요' };
+    if (/(?:정기\s*(?:구독|배송)|멤버십|월\s*정액|이용권|구독권|티켓|공연|전시|클래스|강좌|예약|숙박|항공|보험)/i.test(n)) return { entity: 'service', behavior: /정기|구독|멤버십|월\s*정액/i.test(n) ? 'subscription' : 'experience', category: '디지털·서비스', sub: /정기|구독|멤버십|월\s*정액/i.test(n) ? '구독·멤버십' : '예약·경험', confidence: .9, includeSpend: true, priceTrack: false, photoSearch: false, recommend: false, reason: '서비스는 상품 재구매 대신 갱신·소비 분석으로 다뤄요' };
+    if (/(?:도서|책\b|소설|에세이|만화책|앨범|음반|lp\b|cd\b|dvd|블루레이|굿즈|피규어|프라모델|퍼즐|보드게임|악기)/i.test(n)) return { ...base, behavior: 'collectible', category: '문화·취미', sub: '도서·음반·굿즈', confidence: .88, recommend: false, reason: '문화·취미 상품은 기본적으로 재구매 추천에서 제외해요' };
+    if (/(?:소파|침대|매트리스|식탁|책상|사무용\s*의자|의자|서랍장|수납장|옷장|장롱|거실장|화장대|가구)/i.test(n)) return { ...base, behavior: 'durable', category: '가구', sub: '가구', confidence: .9, recommend: false, reason: '가구는 지출에는 포함하지만 소모품 추천에서는 제외해요' };
+    if (/(?:인테리어|조명|커튼|블라인드|러그|카펫|벽지|시트지|액자|거울|화병|시계\b|캔들\s*홀더)/i.test(n)) return { ...base, behavior: 'durable', category: '홈·인테리어', sub: '인테리어·조명', confidence: .86, recommend: false, reason: '홈·인테리어는 내구재로 분류해요' };
+    if (/(?:문구|노트|다이어리|볼펜|연필|형광펜|마커|스티커|색연필|크레파스|스케치북|필통|파일\b|바인더)/i.test(n)) return { ...base, behavior: 'consumable', category: '문구·완구', sub: '문구', confidence: .84, recommend: true, reason: '반복 구매 가능성이 있는 문구류예요' };
+    if (/(?:장난감|레고|블록|인형|완구|rc카|미니카)/i.test(n)) return { ...base, behavior: 'collectible', category: '문구·완구', sub: '완구·놀이', confidence: .84, recommend: false, reason: '완구는 기본적으로 재구매 추천에서 제외해요' };
+    if (/(?:휴지|티슈|세제|유연제|샴푸|린스|치약|칫솔|물티슈|기저귀|생리대|제습|사료|모래|필터|마스크|식품|음료|생수|우유|계란|쌀|라면|커피|원두|영양제|비타민|화장솜|면봉|건전지)/i.test(n)) return { ...base, behavior: 'consumable', confidence: .82, recommend: true, reason: '반복 구매 가능성이 높은 실물 소모품이에요' };
+    return base;
+  }
+  // 사용자가 직접 바꾼 분류는 미확인 실물 항목의 보수적인 기본 정책을 보완한다.
+  function profileWithCategory(name, override) {
+    const p = itemProfile(name); if (!override) return p;
+    const [category, sub0] = String(override).split('/'), sub = sub0 || category;
+    if (category === '정산·결제') return { ...p, entity: 'payment', behavior: 'settlement', category, sub, confidence: 1, includeSpend: false, priceTrack: false, photoSearch: false, recommend: false, reason: '직접 정한 결제·정산 항목이에요' };
+    if (category === '디지털·서비스') return { ...p, entity: 'digital', behavior: 'one_off', category, sub, confidence: 1, includeSpend: true, priceTrack: false, photoSearch: false, recommend: false, reason: '직접 정한 디지털·서비스 항목이에요' };
+    if (p.entity !== 'physical') return { ...p, category, sub, reason: p.reason + ' 실물 추적 정책은 유지해요' };
+    const recurring = ['식품', '영양제', '생활용품', '육아', '반려동물', '뷰티', '문구·완구'].includes(category);
+    return { ...p, category, sub, confidence: 1, behavior: recurring ? 'consumable' : p.behavior, recommend: recurring, reason: recurring ? '직접 분류한 반복 구매 가능 실물 품목이에요' : '직접 분류한 비정기·내구 실물 품목이에요' };
+  }
+  const api = { THUMBS, thumbHash, findImg, imgSrc, parseSearch, bestMatch, mailKind, FAILS, backouts, parseEml, imgBlockItems, orderBlockItems, tableItems, labelItems, normName, decodeQP, isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won, itemProfile, profileWithCategory };
   if (typeof module !== 'undefined') module.exports = api; else root.LetsBuy = api;
 })(typeof self !== 'undefined' ? self : this);
