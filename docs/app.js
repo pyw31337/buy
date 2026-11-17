@@ -267,7 +267,7 @@
     const problem = p?.error;
     const result = !run && Number.isFinite(p?.searched) ? `<small class="phresult">검색 ${p.searched}회 · 새 사진 ${p.found || 0}개</small>` : '';
     const orderState = orderPhotoProgress?.text ? `<small class="phorder">${esc(orderPhotoProgress.text)}</small>` : '';
-    const controls = `<button class="btn sm" id="orderPhotos">실제 주문 사진</button><button class="btn sm ghost" id="fillImg">${problem ? '검색 다시 시도' : '검색으로 보강'}</button>`;
+    const controls = `<button class="btn sm" id="orderPhotos">전체 실제 주문 사진</button><button class="btn sm ghost" id="fillImg">${problem ? '검색 다시 시도' : '검색으로 보강'}</button>`;
     return `<div class="phbar"><span class="phl">${svg('image', 16)} 사진 <b>${have}/${items.length}</b></span><span class="phm"><i style="width:${run ? Math.round(p.done / (p.total || 1) * 100) : pc}%"></i></span>${run ? `<small>찾는 중 ${p.done}/${p.total}${p.queued ? ' · 다음 묶음 자동 진행' : ''}</small>` : controls}${result}${orderState}${problem ? `<small class="pherr" title="${esc(problem)}">중단됨 · 다시 시도해 주세요</small>` : ''}</div>`;
   }
   function startPhotoFill() {
@@ -364,7 +364,7 @@
   go(store.orders.length && location.hash !== '#home' ? (['prod', 'items', 'dash'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'prod') : 'home');
   $('#demo').onclick = () => { demo = true; render(); go('prod'); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
-  const REQUIRED_EXTENSION_VERSION = '0.16.1';
+  const REQUIRED_EXTENSION_VERSION = '0.17.0';
   let extInfo = null, extLog = [], extProbe = null, extHealth = null, collectProgress = null, orderPhotoProgress = null, extSettings = { shareThumbs: false };
   function versionAtLeast(actual, required) {
     const a = String(actual || '').split('.').map(n => Number(n) || 0), b = String(required).split('.').map(n => Number(n) || 0);

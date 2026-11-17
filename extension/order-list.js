@@ -57,31 +57,111 @@
     return { orders, matched };
   }
   const b = document.createElement('button');
-  b.textContent = '실제 주문 사진 담기';
+  b.textContent = '전체 주문 사진 담기';
   Object.assign(b.style, { position: 'fixed', right: '20px', bottom: '20px', zIndex: 2147483647, background: '#FF5A36', color: '#fff', border: '0', borderRadius: '999px', padding: '12px 18px', font: '700 14px system-ui', boxShadow: '0 8px 24px rgba(0,0,0,.18)', cursor: 'pointer' });
-  async function collect() {
-    b.disabled = true; b.textContent = '주문 사진 읽는 중…';
+  const MAX_VIEWS = 120;
+  let crawling = false;
+  const isVisible = el => { const r = el?.getBoundingClientRect?.(); return !!r && r.width > 0 && r.height > 0; };
+  const textOf = el => clean(el?.innerText || el?.textContent || '');
+  const signature = () => `${clean(document.body.innerText).slice(0, 1400)}|${[...document.images].slice(0, 12).map(image => image.currentSrc || image.src).join('|')}`;
+  async function waitForChange(before) {
+    for (let n = 0; n < 12; n++) { await sleep(650); if (signature() !== before) { await sleep(500); return true; } }
+    return false;
+  }
+  function active(el) { return el?.getAttribute('aria-current') === 'page' || /active|selected|on|current/i.test(`${el?.className || ''} ${el?.getAttribute('aria-selected') || ''}`); }
+  function yearNodes() {
+    return [...document.querySelectorAll('button,a')].filter(el => isVisible(el) && /^20(?:1\d|2\d)$/.test(textOf(el)));
+  }
+  function pagerNodes() {
+    return [...document.querySelectorAll('button,a')].filter(el => {
+      const label = textOf(el); if (!isVisible(el) || !/^[1-9]\d?$/.test(label)) return false;
+      let box = el.parentElement;
+      for (let depth = 0; box && depth < 4; depth++, box = box.parentElement) if (/이전|다음|prev|next/i.test(textOf(box))) return true;
+      return false;
+    });
+  }
+  async function clickLabel(label, nodes) {
+    const el = nodes().find(node => textOf(node) === label);
+    if (!el || active(el)) return !!el;
+    const before = signature();
+    el.scrollIntoView?.({ block: 'center' }); el.click();
+    return waitForChange(before);
+  }
+  const tell = (text, state = 'running') => new Promise(resolve => chrome.runtime.sendMessage({ type: 'orderPhotoProgress', mall, text, state }, () => resolve()));
+  async function collect(options = {}) {
+    if (!options.silent) { b.disabled = true; b.textContent = '주문 사진 읽는 중…'; }
     let rows = [];
-    // SPA 주문목록은 늦게 그려진다. 사진이 실제로 나타날 시간을 짧게 준다.
-    for (let attempt = 0; attempt < 5; attempt++) {
+    // 전체 순회 중에는 이미 카드가 열린 각 화면을 한 번씩만 빠르게 읽는다.
+    const attempts = options.fast ? 1 : 5;
+    for (let attempt = 0; attempt < attempts; attempt++) {
       rows = LetsBuy.parseOrderList(document.body.innerText, mall);
       if (rows.length) break;
-      await sleep(1400);
+      if (attempt + 1 < attempts) await sleep(1400);
     }
     // 날짜·금액 텍스트가 바뀌어도, 현재 보이는 실제 주문 카드의 사진은 그대로 활용한다.
     const media = visibleMedia();
-    if (!rows.length && !media.length) { b.disabled = false; b.textContent = '주문 카드가 안 보여요'; diag('orderlist', false, `${mall} rows=0 cards=0`); return { ok: false }; }
+    if (!rows.length && !media.length) {
+      if (!options.silent) { b.disabled = false; b.textContent = '주문 카드가 안 보여요'; }
+      diag('orderlist', false, `${mall} rows=0 cards=0`); return { ok: false };
+    }
     const result = enrich(rows, media);
-    const reply = await new Promise(resolve => chrome.runtime.sendMessage({ type: 'orderMedia', orders: result.orders, media, meta: { mall, parsed: result.orders.length, directMatched: result.matched, visible: media.length } }, resolve));
+    const reply = await new Promise(resolve => chrome.runtime.sendMessage({ type: 'orderMedia', orders: result.orders, media, meta: { mall, parsed: result.orders.length, directMatched: result.matched, visible: media.length, scan: !!options.scan } }, resolve));
     const matched = reply?.matched || result.matched;
     const n = reply?.orders || result.orders.length;
-    b.textContent = matched ? `실제 사진 ${matched}개 담음` : `${n}개 확인 · 일치 사진 없음`;
+    if (!options.silent) b.textContent = matched ? `실제 사진 ${matched}개 담음` : `${n}개 확인 · 일치 사진 없음`;
     diag('orderlist', !!reply?.ok, `${mall} rows=${result.orders.length} cards=${media.length} matched=${matched}`);
     return { ok: !!reply?.ok, matched, orders: n };
   }
-  b.onclick = () => collect();
+  async function scanAll() {
+    if (crawling) return { ok: true, busy: true };
+    crawling = true; b.disabled = true;
+    let views = 0, any = false, limited = false;
+    const years = [...new Set(yearNodes().map(textOf))];
+    const periods = years.length ? years : [null];
+    try {
+      for (const year of periods) {
+        if (views >= MAX_VIEWS) { limited = true; break; }
+        if (year) await clickLabel(year, yearNodes);
+        const pages = [...new Set(pagerNodes().map(textOf))].sort((a, b) => +a - +b);
+        const labels = pages.length ? pages : [null];
+        for (const page of labels) {
+          if (views >= MAX_VIEWS) { limited = true; break; }
+          if (page) await clickLabel(page, pagerNodes);
+          views++; b.textContent = `${year || mall} ${page || ''}쪽 사진 ${views}면째 읽는 중…`;
+          const result = await collect({ fast: true, silent: true, scan: true }); any = any || result.ok;
+          await tell(`${mall} ${year ? year + '년 ' : ''}${page ? page + '쪽 ' : ''}${views}면 확인 중`, 'running');
+        }
+        if (limited) break;
+      }
+      // 페이지 번호가 없는 무한 목록도 현재 탭에서 계속 아래로 내려가며 실제 카드를 읽는다.
+      if (!years.length && !pagerNodes().length) {
+        let still = 0;
+        while (views < MAX_VIEWS && still < 3) {
+          const before = signature(), y = scrollY, h = document.documentElement.scrollHeight;
+          scrollBy({ top: Math.max(innerHeight * 1.6, 700), behavior: 'auto' }); await sleep(900);
+          if (scrollY === y && document.documentElement.scrollHeight === h) still++; else still = 0;
+          if (signature() === before && still >= 2) break;
+          views++; b.textContent = `${mall} 주문 목록 ${views}면째 읽는 중…`;
+          const result = await collect({ fast: true, silent: true, scan: true }); any = any || result.ok;
+          await tell(`${mall} 주문 목록 ${views}면 확인 중`, 'running');
+        }
+        if (views >= MAX_VIEWS) limited = true;
+      }
+      const tail = limited ? `안전 한도 ${MAX_VIEWS}면에서 멈췄어요. 다시 누르면 이어서 읽습니다.` : `${views}면 실제 주문 카드 확인을 마쳤어요.`;
+      b.textContent = tail; b.disabled = false;
+      await tell(`${mall} ${tail}`, any ? 'complete' : 'no-match');
+      return { ok: any, views, limited };
+    } catch (error) {
+      const message = String(error?.message || error || '알 수 없는 오류');
+      b.disabled = false; b.textContent = '주문 사진 다시 시도';
+      await tell(`${mall} 주문 사진 수집이 중단됐어요. 다시 눌러 이어서 시도해 주세요.`, 'failed');
+      diag('orderlist', false, `${mall} scan ${message}`);
+      return { ok: any, views, error: message };
+    } finally { crawling = false; }
+  }
+  b.onclick = () => scanAll();
   document.body.appendChild(b);
   chrome.runtime.onMessage.addListener((m, _s, reply) => {
-    if (m.type === 'collect' || m.type === 'collectOrderMedia') { collect().then(reply); return true; }
+    if (m.type === 'collect' || m.type === 'collectOrderMedia') { scanAll().then(reply); return true; }
   });
 })();

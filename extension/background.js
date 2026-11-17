@@ -17,13 +17,15 @@ chrome.alarms.onAlarm.addListener(async a => {
 });
 // 아이콘 클릭(또는 Alt+Shift+L) 한 번 = 지금 탭에서 전부 수집
 const WEB = 'https://pyw31337.github.io/buy/';
-const COLLECTABLE = /^https:\/\/(mail\.naver\.com|mail\.google\.com|mc\.coupang\.com|my\.coupang\.com|www\.coupang\.com\/my|order\.pay\.naver\.com|pay\.naver\.com)/;
+const COLLECTABLE = /^https:\/\/(mail\.naver\.com|mail\.google\.com|mc\.coupang\.com|my\.coupang\.com|www\.coupang\.com\/(?:my|np\/mycoupang)|order\.pay\.naver\.com|pay\.naver\.com)/;
 const badge = (text, color = '#FF5A36') => { chrome.action.setBadgeBackgroundColor({ color }); chrome.action.setBadgeText({ text: String(text) }); };
 let orderSaveQueue = Promise.resolve();
 const queueOrderSave = work => { const next = orderSaveQueue.then(work, work); orderSaveQueue = next.catch(() => {}); return next; };
 const ORDER_PHOTO_PAGES = [
   { mall: '네이버페이', url: 'https://order.pay.naver.com/home' },
-  { mall: '쿠팡', url: 'https://mc.coupang.com/ssr/desktop/mycoupang/orders/list?pageType=ORDER_HISTORY' }
+  // mc.coupang.com의 SSR 주소는 로그인된 브라우저에서도 Access Denied가 날 수 있다.
+  // 사용자가 일반 웹에서 로그인하는 마이쿠팡 주문목록 경로를 사용한다.
+  { mall: '쿠팡', url: 'https://www.coupang.com/np/mycoupang/orderlist' }
 ];
 const pendingOrderPhotoTabs = new Map();
 chrome.action.onClicked.addListener(async tab => {
@@ -54,12 +56,13 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
       await updateOrderPhotoProgress(meta.mall, {
         state: matched ? 'complete' : 'no-match',
         text: matched ? `${meta.mall || '주문내역'} 실제 사진 ${matched}개 반영` : `${meta.mall || '주문내역'} 주문 카드를 찾았지만 기존 구매명과 일치한 사진이 없어요.`,
-        ...meta, ...result
+        ...meta, ...result, accumulate: !!meta.scan
       });
       reply({ ok: true, orders: result.orders, matched, cards: result.cards });
     }).catch(e => reply({ ok: false, error: String(e?.message || e) }));
     return true;
   }
+  if (m.type === 'orderPhotoProgress') { updateOrderPhotoProgress(m.mall, { state: m.state || 'running', text: m.text || '주문 카드 확인 중' }).then(() => reply({ ok: true })); return true; }
   if (m.type === 'openOrderPhotos') { openOrderPhotoPages().then(reply).catch(e => reply({ ok: false, error: String(e?.message || e) })); return true; }
   if (m.type === 'pricesNow') { collectPrices().then(r => notify().then(() => reply(r))); return true; }
   if (m.type === 'testNotify') { show('test', '렛츠바이 알림 테스트', '알림이 잘 보이면 준비 완료예요.'); reply({}); }
@@ -82,8 +85,14 @@ async function openOrderPhotoPages() {
 }
 async function updateOrderPhotoProgress(mall, next) {
   const { orderPhotoProgress = {} } = await chrome.storage.local.get('orderPhotoProgress');
-  const status = { ...(orderPhotoProgress.status || {}), [mall || '주문내역']: { ...next, at: new Date().toISOString() } };
-  const lines = Object.entries(status).map(([name, state]) => `${name}: ${state.text || (state.state === 'opening' ? '확인 중' : '')}`).filter(Boolean);
+  const name = mall || '주문내역', previous = orderPhotoProgress.status?.[name] || {};
+  const matchedTotal = next.accumulate ? Number(previous.matchedTotal || 0) + Number(next.matched || 0) : (Number.isFinite(next.matched) ? next.matched : previous.matchedTotal);
+  const current = { ...previous, ...next, ...(Number.isFinite(matchedTotal) ? { matchedTotal } : {}), at: new Date().toISOString() };
+  const status = { ...(orderPhotoProgress.status || {}), [name]: current };
+  const lines = Object.entries(status).map(([label, state]) => {
+    const suffix = Number.isFinite(state.matchedTotal) ? ` · 실제 사진 누적 ${state.matchedTotal}개` : '';
+    return `${label}: ${state.text || (state.state === 'opening' ? '확인 중' : '')}${suffix}`;
+  }).filter(Boolean);
   await chrome.storage.local.set({ orderPhotoProgress: { ...orderPhotoProgress, ...next, status, text: lines.join(' · '), at: new Date().toISOString() } });
 }
 chrome.tabs.onUpdated.addListener((tabId, info) => {
