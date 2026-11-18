@@ -62,6 +62,7 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
   });
   if (m.type === 'orderMedia') {
     queueOrderSave(() => mergeOrderMedia(m.orders || [], m.media || [], m.meta || {})).then(async result => {
+      await updatePhotoAudit();
       const meta = m.meta || {};
       const matched = result.matched || 0;
       await updateOrderPhotoProgress(meta.mall, {
@@ -166,6 +167,20 @@ function mediaMatch(name, text) {
 }
 const sameMall = (orderMall, sourceMall) => sourceMall === '네이버페이' ? /네이버/.test(orderMall || '') : String(orderMall || '') === sourceMall;
 const enoughMedia = match => match && (match.score >= .65 || (match.same >= 2 && match.score >= .45));
+async function updatePhotoAudit() {
+  const st = await chrome.storage.local.get(['orders', 'thumbs', 'thumbReason', 'cats', 'aliases']);
+  const items = LetsBuy.analyze(st.orders || [], todayStr(), st.aliases || {}, { all: true }).filter(it => LetsBuy.profileWithCategory(it.name, (st.cats || {})[it.key]).photoSearch);
+  const audit = { total: items.length, have: 0, mail: 0, orderpage: 0, generated: 0, missing: 0, reasons: {}, at: new Date().toISOString() };
+  for (const it of items) {
+    if (st.thumbs?.[it.key]) { audit.have++; audit.generated++; continue; }
+    if (it.img) { audit.have++; if ((st.orders || []).some(o => o.img === it.img && o.photoSource === 'orderpage')) audit.orderpage++; else audit.mail++; continue; }
+    audit.missing++;
+    const reason = st.thumbReason?.[it.key]?.reason || 'not-found';
+    audit.reasons[reason] = (audit.reasons[reason] || 0) + 1;
+  }
+  await chrome.storage.local.set({ photoAudit: audit });
+  return audit;
+}
 // 주문 목록의 DOM은 플랫폼마다 계속 바뀐다. 행 파서 결과가 0건이어도 저장된 메일 구매명과
 // 현재 보이는 주문 카드의 이름을 대조해 이미지만 보강한다.
 async function mergeOrderMedia(list, media, meta) {
@@ -342,9 +357,9 @@ async function fillImages(force) {
   if (filling) return { busy: true }; filling = true;
   let lastProgress = null, priorProgress = null;
   try {
-    const st = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'cats', 'thumbs', 'thumbMiss', 'settings', 'thumbJob', 'thumbProg']);
+    const st = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'cats', 'thumbs', 'thumbMiss', 'thumbReason', 'settings', 'thumbJob', 'thumbProg']);
     priorProgress = st.thumbProg || null;
-    const thumbs = st.thumbs || {}, miss = st.thumbMiss || {}, today = todayStr(), prices = st.prices || {};
+    const thumbs = st.thumbs || {}, miss = st.thumbMiss || {}, reasons = st.thumbReason || {}, today = todayStr(), prices = st.prices || {};
     const items = LetsBuy.analyze(st.orders || [], today, st.aliases || {}, { all: true }).filter(it => LetsBuy.profileWithCategory(it.name, (st.cats || {})[it.key]).photoSearch).sort((a, b) => b.count - a.count);
     // 주문 메일에 이미 담긴 사진은 다시 검색하지 않는다.
     for (const it of items) if (!thumbs[it.key] && it.img) thumbs[it.key] = { u: it.img, from: '메일' };
@@ -373,7 +388,7 @@ async function fillImages(force) {
     const processOne = async key => {
       const it = byKey.get(key); if (!it || thumbs[key]) return;
       const cands = (prices[key] || []).slice().reverse().map(p => p.img).filter(Boolean).map(u => ({ u, from: '가격 기록' }));
-      let blob = null, from = '', hash = '';
+      let blob = null, from = '', hash = '', sourceReason = 'not-found';
       if (st.settings?.shareThumbs) {
         try {
           hash = await LetsBuy.thumbHash(key);
@@ -384,7 +399,7 @@ async function fillImages(force) {
       if (thumbs[key]) { batchGot++; job.found++; return; }
       for (const c of cands) {
         try { blob = await toWebp(c.u); from = c.from; source('가격 기록').success++; break; }
-        catch { source('가격 기록').image++; }
+        catch { source('가격 기록').image++; sourceReason = 'image-invalid'; }
       }
       const q = encodeURIComponent(LetsBuy.tokens(it.name).slice(0, 5).join(' ') || it.name);
       for (const s of imageSourcesFor(it)) {
@@ -395,18 +410,18 @@ async function fillImages(force) {
         let h = '', u = '';
         try {
           stat.tried++; batchSearched++; job.searched++; h = await thumbSearchText(s.url(q));
-        } catch { stat.network++; off[s.name] = (off[s.name] || 0) + 1; continue; }
-        if (!h || blocked(h)) { stat.blocked++; off[s.name] = (off[s.name] || 0) + 1; continue; }
+        } catch { stat.network++; sourceReason = 'network'; off[s.name] = (off[s.name] || 0) + 1; continue; }
+        if (!h || blocked(h)) { stat.blocked++; sourceReason = 'blocked'; off[s.name] = (off[s.name] || 0) + 1; continue; }
         try { u = s.pick(h); } catch { u = ''; }
-        if (!u) { stat.noImage++; continue; }
+        if (!u) { stat.noImage++; sourceReason = 'no-image'; continue; }
         try { blob = await toWebp(u); from = s.name; stat.success++; off[s.name] = 0; }
-        catch { stat.image++; }
+        catch { stat.image++; sourceReason = 'image-invalid'; }
         await sleep(140 + Math.random() * 120);
       }
       if (blob) {
         thumbs[key] = { d: await b64(blob), from }; batchGot++; job.found++;
         if (st.settings?.shareThumbs && hash) fetch(LetsBuy.THUMBS + '/t/' + hash + '.webp', { method: 'PUT', headers: { 'Content-Type': 'image/webp' }, body: blob }).catch(() => {});
-      } else miss[key] = today;
+      } else { miss[key] = today; reasons[key] = { at: today, reason: sourceReason }; }
     };
     const worker = async () => {
       while (true) {
@@ -418,7 +433,8 @@ async function fillImages(force) {
     await Promise.all(Array.from({ length: Math.min(THUMB_CONCURRENCY, batchKeys.length) }, worker));
     job.cursor = done;
     const more = done < job.total;
-    await chrome.storage.local.set({ thumbs, thumbMiss: miss, thumbJob: more ? job : null });
+    await chrome.storage.local.set({ thumbs, thumbMiss: miss, thumbReason: reasons, thumbJob: more ? job : null });
+    await updatePhotoAudit();
     await progress(done, { running: more, queued: more });
     if (more) chrome.alarms.create(THUMB_ALARM, { when: Date.now() + 15_000 });
     diag('thumbs', true, `got=${batchGot}/${batchKeys.length} done=${done}/${job.total} have=${Object.keys(thumbs).length}/${items.length} searched=${batchSearched} queued=${more} sources=${JSON.stringify(job.sources)}`);
