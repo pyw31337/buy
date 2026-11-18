@@ -58,15 +58,33 @@
   }
   const b = document.createElement('button');
   b.textContent = '전체 주문 사진 담기';
-  Object.assign(b.style, { position: 'fixed', right: '20px', bottom: '20px', zIndex: 2147483647, background: '#FF5A36', color: '#fff', border: '0', borderRadius: '999px', padding: '12px 18px', font: '700 14px system-ui', boxShadow: '0 8px 24px rgba(0,0,0,.18)', cursor: 'pointer' });
+  // 하단 쇼핑 위젯(bottom: 24px)과 겹치지 않도록 높이를 분리한다
+  Object.assign(b.style, {
+    position: 'fixed', right: '20px', bottom: '84px', zIndex: 2147483647,
+    background: '#FF5A36', color: '#fff', border: '0', borderRadius: '999px',
+    padding: '12px 18px', font: '700 14px system-ui, -apple-system, sans-serif',
+    boxShadow: '0 8px 24px rgba(0,0,0,.18)', cursor: 'pointer'
+  });
   // 대형 주문목록은 연도·페이지가 많다. 화면당 실제 카드만 읽으므로 600면까지 허용한다.
   const MAX_VIEWS = 600;
   let crawling = false;
   const isVisible = el => { const r = el?.getBoundingClientRect?.(); return !!r && r.width > 0 && r.height > 0; };
   const textOf = el => clean(el?.innerText || el?.textContent || '');
   const signature = () => `${clean(document.body.innerText).slice(0, 1400)}|${[...document.images].slice(0, 12).map(image => image.currentSrc || image.src).join('|')}`;
+  
+  function isBlocked() {
+    const t = (document.title || '').toLowerCase();
+    const h1 = (document.querySelector('h1')?.innerText || '').toLowerCase();
+    const bText = (document.body?.innerText || '').slice(0, 500).toLowerCase();
+    return /301|moved permanently|cloudfront|access denied|403 forbidden|error|502 bad gateway/i.test(t + ' ' + h1 + ' ' + bText) || location.pathname.includes('/login');
+  }
+
   async function waitForChange(before) {
-    for (let n = 0; n < 12; n++) { await sleep(650); if (signature() !== before) { await sleep(500); return true; } }
+    for (let n = 0; n < 12; n++) {
+      await sleep(700);
+      if (isBlocked()) return false;
+      if (signature() !== before) { await sleep(600); return true; }
+    }
     return false;
   }
   function active(el) { return el?.getAttribute('aria-current') === 'page' || /active|selected|on|current/i.test(`${el?.className || ''} ${el?.getAttribute('aria-selected') || ''}`); }
@@ -81,6 +99,26 @@
       return false;
     });
   }
+  function findNextPagerNode() {
+    // 1. 페이지네이션 전용 컨테이너 내의 '다음' 버튼 우선 탐색
+    const pagers = document.querySelectorAll('[class*="pagination"], [class*="paging"], [class*="pager"], nav, ol, ul, .page-box');
+    for (const pager of pagers) {
+      if (pager.closest('[class*="carousel"], [class*="slider"], [class*="banner"], [class*="recommend"], [class*="prod-"]')) continue;
+      const cand = [...pager.querySelectorAll('button, a')].find(el => {
+        if (!isVisible(el) || active(el)) return false;
+        const label = textOf(el), aria = el.getAttribute('aria-label') || '', cls = el.className || '';
+        return /^(다음|다음 페이지|next|›|>)$/i.test(label) || /다음|next/i.test(aria) || /btn-next|next-page|page-next/i.test(cls);
+      });
+      if (cand) return cand;
+    }
+    // 2. 문서 전체 탐색 시 캐러셀/추천 배너는 철저히 배제
+    return [...document.querySelectorAll('button, a')].find(el => {
+      if (!isVisible(el) || active(el)) return false;
+      if (el.closest('[class*="carousel"], [class*="slider"], [class*="banner"], [class*="recommend"], [class*="prod-"], [class*="item"]')) return false;
+      const label = textOf(el), aria = el.getAttribute('aria-label') || '', cls = el.className || '';
+      return /^(다음|다음 페이지|next|›|>)$/i.test(label) || /다음|next/i.test(aria) || /btn-next|next-page|page-next/i.test(cls);
+    });
+  }
   async function clickLabel(label, nodes) {
     const el = nodes().find(node => textOf(node) === label);
     if (!el || active(el)) return !!el;
@@ -90,6 +128,11 @@
   }
   const tell = (text, state = 'running') => new Promise(resolve => chrome.runtime.sendMessage({ type: 'orderPhotoProgress', mall, text, state }, () => resolve()));
   async function collect(options = {}) {
+    if (isBlocked()) {
+      b.disabled = false; b.textContent = '보안 확인 필요';
+      await tell(`${mall} 보안 확인 또는 로그인 만료로 수집이 중단되었습니다. 새로고침 후 다시 시도해 주세요.`, 'failed');
+      return { ok: false, error: 'blocked' };
+    }
     if (!options.silent) { b.disabled = true; b.textContent = '주문 사진 읽는 중…'; }
     let rows = [];
     // 전체 순회 중에는 이미 카드가 열린 각 화면을 한 번씩만 빠르게 읽는다.
@@ -115,6 +158,11 @@
   }
   async function scanAll() {
     if (crawling) return { ok: true, busy: true };
+    if (isBlocked()) {
+      b.disabled = false; b.textContent = '보안 확인 필요';
+      await tell(`${mall} 보안 확인 또는 로그인 만료 상태입니다. 새로고침 후 로그인해 주세요.`, 'failed');
+      return { ok: false, error: 'blocked' };
+    }
     crawling = true; b.disabled = true;
     let views = 0, any = false, limited = false;
     const years = [...new Set(yearNodes().map(textOf))];
@@ -127,28 +175,31 @@
         // “다음”을 눌러 DOM 서명이 바뀌는지 확인하는 방식으로 끝까지 순회한다.
         let page = 0, seen = new Set();
         while (views < MAX_VIEWS) {
+          if (isBlocked()) {
+            b.disabled = false; b.textContent = '보안 확인 필요';
+            await tell(`${mall} 보안 확인 또는 로그인 만료로 수집이 중단되었습니다. 새로고침 후 다시 시도해 주세요.`, 'failed');
+            return { ok: any, views, error: 'blocked' };
+          }
           const sig = signature(); if (seen.has(sig)) break; seen.add(sig);
           page++; views++; b.textContent = `${year || mall} ${page}쪽 사진 ${views}면째 읽는 중…`;
           const result = await collect({ fast: true, silent: true, scan: true }); any = any || result.ok;
           await tell(`${mall} ${year ? year + '년 ' : ''}${page}쪽 ${views}면 확인 중`, 'running');
-          const next = [...document.querySelectorAll('button,a')].find(el => {
-            if (!isVisible(el) || active(el)) return false;
-            const label = textOf(el), aria = el.getAttribute('aria-label') || '';
-            return /^(다음|다음 페이지|next|›|>)$/i.test(label) || /다음|next/i.test(aria);
-          });
+          
+          const next = findNextPagerNode();
           if (!next) break;
           const before = signature(); next.scrollIntoView?.({ block: 'center' }); next.click();
           if (!await waitForChange(before)) break;
+          await sleep(800); // 봇 차단 방지 안전 여유시간
         }
-        if (views >= MAX_VIEWS) limited = true;
         if (limited) break;
       }
       // 페이지 번호가 없는 무한 목록도 현재 탭에서 계속 아래로 내려가며 실제 카드를 읽는다.
       if (!years.length && !pagerNodes().length) {
         let still = 0;
         while (views < MAX_VIEWS && still < 3) {
+          if (isBlocked()) break;
           const before = signature(), y = scrollY, h = document.documentElement.scrollHeight;
-          scrollBy({ top: Math.max(innerHeight * 1.6, 700), behavior: 'auto' }); await sleep(900);
+          scrollBy({ top: Math.max(innerHeight * 1.6, 700), behavior: 'auto' }); await sleep(1200);
           if (scrollY === y && document.documentElement.scrollHeight === h) still++; else still = 0;
           if (signature() === before && still >= 2) break;
           views++; b.textContent = `${mall} 주문 목록 ${views}면째 읽는 중…`;

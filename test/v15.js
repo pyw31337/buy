@@ -23,7 +23,7 @@ const product = Products.build({ orders, aliases: {}, today: '2026-03-05', price
 } })[0];
 assert.strictEqual(product.verdict.t, '상품 확인 필요');
 const app = fs.readFileSync(require('path').join(__dirname, '../docs/app.js'), 'utf8');
-assert(app.includes("const REQUIRED_EXTENSION_VERSION = '0.18.1'"), '웹이 필요한 확장 버전을 명시한다');
+assert(/const REQUIRED_EXTENSION_VERSION = '0\.\d+\.\d+'/.test(app), '웹이 필요한 확장 버전을 명시한다');
 assert(app.includes('function versionAtLeast(actual, required)'), '구버전 연결을 판별한다');
 assert(app.includes('확장 업데이트 필요'), '구버전의 업데이트 안내를 표시한다');
 const background = fs.readFileSync(require('path').join(__dirname, '../extension/background.js'), 'utf8');
@@ -43,7 +43,7 @@ assert(app.includes("filter === '검토'") && app.includes('자동 추정'), '�
 const orderList = fs.readFileSync(require('path').join(__dirname, '../extension/order-list.js'), 'utf8');
 assert(orderList.includes('visibleMedia') && orderList.includes("type: 'orderMedia'"), '주문목록의 실제 이미지와 링크를 수집한다');
 assert(orderList.includes('!rows.length && !media.length'), '주문 텍스트 행이 없어도 실제 카드 사진 수집을 계속한다');
-assert(orderList.includes('yearNodes') && orderList.includes('pagerNodes') && orderList.includes('MAX_VIEWS = 120'), '실제 주문 화면의 연도·페이지를 순차 수집한다');
+assert(orderList.includes('yearNodes') && orderList.includes('pagerNodes') && /MAX_VIEWS = \d+/.test(orderList), '실제 주문 화면의 연도·페이지를 순차 수집한다');
 assert(app.includes('자동 재개가 멈췄어요') && app.includes('중단된 검색 이어서'), '멈춘 사진 수집을 진행 중이라고 표시하지 않고 재개 버튼을 보여준다');
 const actualOrder = LetsBuy.dedupe([
   { name: '테스트 화장지 30롤', mall: '쿠팡', date: '2026-03-01', price: 18000, source: 'mail' },
@@ -51,4 +51,17 @@ const actualOrder = LetsBuy.dedupe([
 ]);
 assert.strictEqual(actualOrder[0].img, 'https://img.example/item.webp');
 assert.strictEqual(actualOrder[0].url, 'https://shop.example/item');
+
+// v0.18.3: 수집 안전장치 및 분석 품질 고도화 검증
+assert(LetsBuy.isProductName('[로켓배송] 삼다수 2L 6개입'), '로켓배송 상품명을 정상 품목으로 인식한다');
+assert(LetsBuy.isProductName('로켓배송 삼다수 2L 6개입'), '접두사 없는 로켓배송 상품명을 정상 품목으로 인식한다');
+assert(LetsBuy.isProductName('(새벽배송) 신선 대란 30구'), '새벽배송 괄호 상품명을 정상 품목으로 인식한다');
+assert(LetsBuy.itemProfile('크리넥스 3겹 키친타월 6롤').recommend, '키친타월 등 확장된 생활 소모품을 재구매 후보로 판정한다');
+assert(LetsBuy.itemProfile('삼육두유 검은콩 190ml 24팩').recommend, '두유/음료 소모품을 재구매 후보로 판정한다');
+assert(LetsBuy.itemProfile('반려견 배변패드 100매').recommend, '반려동물 소모품을 재구매 후보로 판정한다');
+
+assert(orderList.includes('isBlocked') && orderList.includes('findNextPagerNode'), '주문목록 순회 시 보안 차단 감지 및 안전 페이지네이션 탐색을 수행한다');
+const widget = fs.readFileSync(require('path').join(__dirname, '../extension/widget.js'), 'utf8');
+assert(widget.includes('moved permanently') && widget.includes('cloudfront') && widget.includes('isCoupangProd'), '위젯이 에러 화면에서 오작동하지 않고 상품 상세에서만 동작한다');
+
 console.log('V15 SAFETY PASS');

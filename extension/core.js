@@ -23,11 +23,19 @@
     return fallback || null;
   }
 
+  // ── 상품명 정제: 말머리·옵션·쇼핑몰 특화 배송 문구 정리 ──
+  const clean = s => String(s || '')
+    .replace(/\[[^\]]*(?:로켓|새벽|당일|무료|특가|배송|단독|행사|프레시|와우|체험단|기획|할인|인기|사은품)[^\]]*\]|\((?:로켓|새벽|당일|무료|특가|배송|단독|행사|프레시|와우|기획|할인)[^)]*\)|\([^)]*옵션[^)]*\)|\s*(?:옵션|선택정보|선택|수량)\s*[:：].*$|\s*\/\s*\d+\s*개\s*$|\s*발송일\s*[:：].*$/gi, ' ')
+    .replace(/^(?:로켓배송|로켓프레시|로켓와우|새벽배송|당일배송|무료배송)\s+/gi, '')
+    .replace(/[★☆♥●■◆▶]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
   // ── 상품명 판정: 약관·안내 문장 걸러내기 ──
-  const BAD = /(교환|반품|환불|판매자|의무|책임|안내|경우|약관|고객센터|문의|규정|정책|동의|개인정보|수신|거부|발송|배송지|배송비|배송|배달|주문번호|주문일|결제|합계|할인|적립|쿠폰|포인트|금액|사유|훼손|분실|유출|부담|요청|가치|감소|청약|철회|소비자|분쟁|보상|기준|법|저작|copyright|all rights|무단|본 메일|이 메일|발신전용|회신|확인하기|바로가기|자세히|클릭|로그인|회원|가격|주식회사|\(주\)|㈜|미니샵|tbody|thead|수량|옵션|스토어|판매처|상점|사업자|대표|이벤트|혜택|광고|구독|주소|연락처|휴대폰|전화|이메일|받는 ?분|수령|도착|예정|영수증|카드|일시불|할부|입금|계좌|무통장|처리|완료|접수|상태|조회|변경|취소|택배|운송장|송장)/i;
+  const BAD = /(교환|반품|환불|판매자|의무|책임|안내|경우|약관|고객센터|문의|규정|정책|동의|개인정보|수신|거부|발송|배송지|배송비|배송안내|배송상태|배송예정|배송조회|배송정보|배달|주문번호|주문일|결제|합계|할인|적립|쿠폰|포인트|금액|사유|훼손|분실|유출|부담|요청|가치|감소|청약|철회|소비자|분쟁|보상|기준|법|저작|copyright|all rights|무단|본 메일|이 메일|발신전용|회신|확인하기|바로가기|자세히|클릭|로그인|회원|가격|주식회사|\(주\)|㈜|미니샵|tbody|thead|수량|옵션|스토어|판매처|상점|사업자|대표|이벤트|혜택|광고|구독|주소|연락처|휴대폰|전화|이메일|받는 ?분|수령|도착|예정|영수증|카드|일시불|할부|입금|계좌|무통장|처리|완료|접수|상태|조회|변경|취소|택배|운송장|송장)/i;
   const SHORT_BAD = /^(오늘|내일|어제|이번|다음|지난|지금|현재|최근|전체|기타|상품|제품|주문|결제|배송|발송|완료|확인|안내|내역|상세|보기|더보기|클릭|바로가기|로그인|회원|고객|님|씨|가격|금액|합계|할인|적립|쿠폰|포인트|수량|옵션|색상|사이즈|모델|브랜드|판매자|스토어|샵|몰|마켓)$/i;
   function isProductName(s) {
-    s = String(s || '').trim();
+    s = clean(s);
     if (s.length < 4 || s.length > 90) return false;
     if (SHORT_BAD.test(s)) return false;
     if (BAD.test(s) || /[<>{}=]/.test(s)) return false;
@@ -176,7 +184,6 @@
   }
   const totalOf = T => { for (let i = 0; i < T.length - 1; i++) if (/^(총\s*결제\s*금액|최종\s*결제\s*금액|결제\s*금액)$/.test(T[i])) { const p = won(T[i + 1]) || won(T[i + 1] + (T[i + 2] === '원' ? '원' : '')) || won(T[i + 2] || ''); if (p) return p; } return null; };
   function parseItems(text) { return itemsFromTokens(String(text || '').split(/\n+/).flatMap(l => l.includes('|') ? l.split('|') : [l]).map(t => ({ t: t.trim() })).filter(t => t.t)); }
-  const clean = s => String(s).replace(/\[[^\]]*(무료|특가|배송|당일|단독|행사)[^\]]*\]|\([^)]*옵션[^)]*\)|\s*(옵션|선택)\s*[:：].*$|\s*\/\s*\d+\s*개\s*$|\s*발송일\s*[:：].*$/g, ' ').replace(/[★☆♥●■◆▶]+/g, ' ').replace(/\s+/g, ' ').trim();
   const orderNoOf = t => (t.match(/주문\s*번호\s*[:：│|]?\s*([0-9A-Z\-]{8,24})/) || t.match(/장바구니\s*번호\s*[:：]?\s*([0-9]{8,20})/) || [])[1] || null;
 
   /** mail: {subject, from, date, body?, html?} → orders[] */
@@ -353,9 +360,12 @@
       else if (dates.length >= 3 && cv < 0.45) { type = '주기'; confidence = Math.min(0.95, 0.9 - cv); }
       else if (dates.length === 2) { type = '주기(추정)'; confidence = 0.45; }
       const last = dates[dates.length - 1];
+      const weights = gaps.map((_, i) => Math.pow(1.25, i));
+      const weightedAvg = gaps.reduce((s, g, i) => s + g * weights[i], 0) / weights.reduce((s, w) => s + w, 0);
+      const effectiveGap = dates.length >= 3 ? Math.round(weightedAvg) : Math.round(avg);
       let nextDate;
       if (type === '시즌') { const m = Math.round(months.reduce((a, b) => a + b, 0) / months.length); const y = +today.slice(0, 4); nextDate = `${(m <= +today.slice(5, 7) ? y + 1 : y)}-${String(m).padStart(2, '0')}-01`; if (dates.some(d => d.startsWith(String(y)) && +d.slice(5,7)===m)) {} }
-      else { const t = new Date(last + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + Math.round(avg)); nextDate = t.toISOString().slice(0, 10); }
+      else { const t = new Date(last + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + effectiveGap); nextDate = t.toISOString().slice(0, 10); }
       const dLeft = day(nextDate) - day(today);
       const prices = list.filter(o => o.price).map(o => ({ date: o.date, price: Math.round(o.price / (o.qty || 1)), mall: o.mall }));
       const status = dLeft < 0 ? '지금 살 때' : dLeft <= 14 ? '곧 필요' : '여유';
@@ -372,11 +382,11 @@
     const skip = /주문상세|배송조회|교환|반품|리뷰|장바구니|재구매|구매확정|문의|판매자|도착|배송완료|결제완료|취소|더보기|선물|^\d+개$|원$/;
     for (let i = 0; i < lines.length; i++) {
       const l = lines[i];
-      const dm = l.match(/^(20\d{2})[.\-\/]\s*(\d{1,2})[.\-\/]\s*(\d{1,2})\.?\s*(주문|결제)?/);
-      if (dm && l.length < 30) { date = `${dm[1]}-${dm[2].padStart(2, '0')}-${dm[3].padStart(2, '0')}`; continue; }
-      if (!date || l.length < 8 || l.length > 140 || skip.test(l) || !isProductName(clean(l))) continue;
+      const dm = l.match(/^(20\d{2})[.\-\/년]\s*(\d{1,2})[.\-\/월]\s*(\d{1,2})/);
+      if (dm && l.length < 35) { date = `${dm[1]}-${dm[2].padStart(2, '0')}-${dm[3].padStart(2, '0')}`; continue; }
+      if (!date || l.length < 4 || l.length > 140 || skip.test(l) || !isProductName(clean(l))) continue;
       for (let k = 1; k <= 3 && lines[i + k]; k++) {
-        const pm = lines[i + k].replace(/\s/g, '').match(/^([0-9,]+)원(?:·|\/)?(\d+)?개?$/);
+        const pm = lines[i + k].replace(/\s/g, '').match(/(?:총|결제금액)?([0-9,]+)원(?:·|\/|\()?(\d+)?개?\)?/);
         if (pm) { out.push({ name: clean(l), price: +pm[1].replace(/,/g, ''), qty: +(pm[2] || 1), mall, date, source: 'orderlist' }); i += k; break; }
       }
     }
@@ -409,7 +419,7 @@
     if (/(?:인테리어|조명|커튼|블라인드|러그|카펫|벽지|시트지|액자|거울|화병|시계\b|캔들\s*홀더)/i.test(n)) return { ...base, behavior: 'durable', category: '홈·인테리어', sub: '인테리어·조명', confidence: .86, recommend: false, reason: '홈·인테리어는 내구재로 분류해요' };
     if (/(?:문구|노트|다이어리|볼펜|연필|형광펜|마커|스티커|색연필|크레파스|스케치북|필통|파일\b|바인더)/i.test(n)) return { ...base, behavior: 'consumable', category: '문구·완구', sub: '문구', confidence: .84, recommend: true, reason: '반복 구매 가능성이 있는 문구류예요' };
     if (/(?:장난감|레고|블록|인형|완구|rc카|미니카)/i.test(n)) return { ...base, behavior: 'collectible', category: '문구·완구', sub: '완구·놀이', confidence: .84, recommend: false, reason: '완구는 기본적으로 재구매 추천에서 제외해요' };
-    if (/(?:휴지|티슈|세제|유연제|샴푸|린스|치약|칫솔|물티슈|기저귀|생리대|제습|사료|모래|필터|마스크|식품|음료|생수|우유|계란|쌀|라면|커피|원두|영양제|비타민|화장솜|면봉|건전지)/i.test(n)) return { ...base, behavior: 'consumable', confidence: .82, recommend: true, reason: '반복 구매 가능성이 높은 실물 소모품이에요' };
+    if (/(?:휴지|티슈|키친타월|세제|유연제|샴푸|린스|트리트먼트|치약|칫솔|치실|가글|구강청결제|바디워시|핸드워시|비누|클렌징|스킨|로션|선크림|토너|물티슈|기저귀|생리대|팬티라이너|제습|탈취|방충|사료|모래|츄르|간식|배변패드|필터|마스크|식품|음료|생수|탄산수|우유|두유|계란|쌀|햇반|즉석밥|라면|커피|원두|캡슐커피|김치|닭가슴살|프로틴|참치캔|통조림|견과류|올리브유|참기름|영양제|비타민|유산균|락토핏|오메가3|루테인|콜라겐|화장솜|면봉|면도날|쉐이빙|건전지|종이컵|수세미|고무장갑|지퍼백|위생백|롤백|랩|호일|쓰레기봉투|락스)/i.test(n)) return { ...base, behavior: 'consumable', confidence: .88, recommend: true, reason: '반복 구매 가능성이 높은 실물 소모품이에요' };
     return base;
   }
   // 사용자가 직접 바꾼 분류는 미확인 실물 항목의 보수적인 기본 정책을 보완한다.
