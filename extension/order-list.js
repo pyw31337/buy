@@ -59,7 +59,8 @@
   const b = document.createElement('button');
   b.textContent = '전체 주문 사진 담기';
   Object.assign(b.style, { position: 'fixed', right: '20px', bottom: '20px', zIndex: 2147483647, background: '#FF5A36', color: '#fff', border: '0', borderRadius: '999px', padding: '12px 18px', font: '700 14px system-ui', boxShadow: '0 8px 24px rgba(0,0,0,.18)', cursor: 'pointer' });
-  const MAX_VIEWS = 120;
+  // 대형 주문목록은 연도·페이지가 많다. 화면당 실제 카드만 읽으므로 600면까지 허용한다.
+  const MAX_VIEWS = 600;
   let crawling = false;
   const isVisible = el => { const r = el?.getBoundingClientRect?.(); return !!r && r.width > 0 && r.height > 0; };
   const textOf = el => clean(el?.innerText || el?.textContent || '');
@@ -122,15 +123,24 @@
       for (const year of periods) {
         if (views >= MAX_VIEWS) { limited = true; break; }
         if (year) await clickLabel(year, yearNodes);
-        const pages = [...new Set(pagerNodes().map(textOf))].sort((a, b) => +a - +b);
-        const labels = pages.length ? pages : [null];
-        for (const page of labels) {
-          if (views >= MAX_VIEWS) { limited = true; break; }
-          if (page) await clickLabel(page, pagerNodes);
-          views++; b.textContent = `${year || mall} ${page || ''}쪽 사진 ${views}면째 읽는 중…`;
+        // 페이지 번호는 SPA에서 일부만 보이는 경우가 많다. 현재 화면을 읽고
+        // “다음”을 눌러 DOM 서명이 바뀌는지 확인하는 방식으로 끝까지 순회한다.
+        let page = 0, seen = new Set();
+        while (views < MAX_VIEWS) {
+          const sig = signature(); if (seen.has(sig)) break; seen.add(sig);
+          page++; views++; b.textContent = `${year || mall} ${page}쪽 사진 ${views}면째 읽는 중…`;
           const result = await collect({ fast: true, silent: true, scan: true }); any = any || result.ok;
-          await tell(`${mall} ${year ? year + '년 ' : ''}${page ? page + '쪽 ' : ''}${views}면 확인 중`, 'running');
+          await tell(`${mall} ${year ? year + '년 ' : ''}${page}쪽 ${views}면 확인 중`, 'running');
+          const next = [...document.querySelectorAll('button,a')].find(el => {
+            if (!isVisible(el) || active(el)) return false;
+            const label = textOf(el), aria = el.getAttribute('aria-label') || '';
+            return /^(다음|다음 페이지|next|›|>)$/i.test(label) || /다음|next/i.test(aria);
+          });
+          if (!next) break;
+          const before = signature(); next.scrollIntoView?.({ block: 'center' }); next.click();
+          if (!await waitForChange(before)) break;
         }
+        if (views >= MAX_VIEWS) limited = true;
         if (limited) break;
       }
       // 페이지 번호가 없는 무한 목록도 현재 탭에서 계속 아래로 내려가며 실제 카드를 읽는다.

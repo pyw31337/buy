@@ -7,6 +7,7 @@ window.addEventListener('message', e => {
   // 페이지가 늦게 시작해도 pull 한 번이면 hello와 저장 데이터를 모두 다시 보낸다.
   if (e.data.type === 'pull') announce();
   if (e.data.type === 'fillImages') chrome.runtime.sendMessage({ type: 'fillImages', force: !!e.data.force }, () => send());
+  if (e.data.type === 'invalidateThumb') chrome.runtime.sendMessage({ type: 'invalidateThumb', key: e.data.key, url: e.data.url }, () => send());
   if (e.data.type === 'openOrderPhotos') chrome.runtime.sendMessage({ type: 'openOrderPhotos' }, result => post('orderPhotos', { result: result || { ok: false } }));
   if (e.data.type === 'health') chrome.runtime.sendMessage({ type: 'health' }, health => post('health', { health: health || { ready: false } }));
   if (e.data.type === 'cancelCollect') chrome.runtime.sendMessage({ type: 'cancelCollect' }, () => {});

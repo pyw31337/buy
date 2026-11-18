@@ -81,7 +81,7 @@
   // 사진: 확장이 만든 작은 WebP(내 브라우저 보관) → 공유 캐시 → 메일 사진 → 분류 그림
   let THUMB = {}, thumbProg = null, sharedAsked = new Set();
   const imgOf = it => (it.key && THUMB[it.key]) || it.img || null;
-  const thumb = (it, sz = 64) => (it = { ...it, img: imgOf(it) }).img ? `<img class="th" style="width:${sz}px;height:${sz}px" src="${esc(it.img)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<span class=&quot;th ico&quot; style=&quot;width:${sz}px;height:${sz}px;background:${catOf(it.name)[2]}&quot;>${svg(catOf(it.name)[1], sz * .45).replace(/"/g, '&quot;')}</span>'">` : (([, k, bg]) => `<span class="th ico" style="width:${sz}px;height:${sz}px;background:${bg}">${svg(k, sz * .45)}</span>`)(catOf(it.name));
+  const thumb = (it, sz = 64) => (it = { ...it, img: imgOf(it) }).img ? `<img class="th" style="width:${sz}px;height:${sz}px" src="${esc(it.img)}" loading="lazy" referrerpolicy="no-referrer" data-thumb-key="${esc(it.key || '')}" onerror="window.postMessage({app:'letsbuy-web',type:'invalidateThumb',key:this.dataset.thumbKey,url:this.src},location.origin);this.outerHTML='<span class=&quot;th ico&quot; style=&quot;width:${sz}px;height:${sz}px;background:${catOf(it.name)[2]}&quot;>${svg(catOf(it.name)[1], sz * .45).replace(/"/g, '&quot;')}</span>'">` : (([, k, bg]) => `<span class="th ico" style="width:${sz}px;height:${sz}px;background:${bg}">${svg(k, sz * .45)}</span>`)(catOf(it.name));
   const MC = { '쿠팡': '#E3262D', '네이버': '#03C75A', '롯데ON': '#E60012', '배민': '#2AC1BC', '메가마트': '#D7262B', '네이버페이': '#03C75A', 'G마켓': '#2E7D32', '옥션': '#D32F2F', '11번가': '#FF0038', 'SSG': '#E2007E', '마켓컬리': '#5F0080', '컬리': '#5F0080', '오늘의집': '#35C5F0', '무신사': '#000', '알리익스프레스': '#E43225' };
   const LOGO = { '쿠팡': 'coupang', '네이버': 'npay', '네이버페이': 'npay', '네이버쇼핑': 'naver', 'G마켓': 'gmarket', '옥션': 'auction', '11번가': '11st', 'SSG': 'ssg', '마켓컬리': 'kurly', '컬리': 'kurly', '롯데ON': 'lotteon', '배민': 'baemin', '메가마트': 'megamart', '오늘의집': 'ohou', '다나와': 'danawa', '에누리': 'enuri' };
   const logo = (m, sz = 18) => { const k = LOGO[m] || LOGO[platOf(m)]; return k ? `<img class="lg-i" src="logos/${k}.png" width="${sz}" height="${sz}" alt="${esc(m)}">` : `<span class="lg-i lg-t" style="width:${sz}px;height:${sz}px;background:${MC[m] || '#77777F'}">${esc(String(m || '?').slice(0, 1))}</span>`; };
@@ -374,7 +374,7 @@
   go(store.orders.length && location.hash !== '#home' ? (['prod', 'items', 'dash'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'prod') : 'home');
   $('#demo').onclick = () => { demo = true; render(); go('prod'); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
-  const REQUIRED_EXTENSION_VERSION = '0.18.1';
+  const REQUIRED_EXTENSION_VERSION = '0.18.2';
   let extInfo = null, extLog = [], extProbe = null, extHealth = null, collectProgress = null, orderPhotoProgress = null, extSettings = { shareThumbs: false };
   function versionAtLeast(actual, required) {
     const a = String(actual || '').split('.').map(n => Number(n) || 0), b = String(required).split('.').map(n => Number(n) || 0);

@@ -306,6 +306,14 @@
       .replace(NOISE, ' ').replace(/[^가-힣a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t.length > 1 && !/^\d+$/.test(t)))];
   }
   const keyOf = name => tokens(name).slice(0, 4).sort().join(' ');
+  // 숫자를 제거한 핵심 토큰만 비교하면 500ml와 1L, 10매와 30매가 같은 품목으로 합쳐진다.
+  const variantOf = name => [...String(name || '').toLowerCase().matchAll(/(\d+(?:\.\d+)?)\s*(ml|l|g|kg|mg|mm|cm|m|매|롤|개입|개|팩|입|ea|겹|정|병|캔|박스|호)\b/gi)].map(m => {
+    const n = +m[1], u = m[2];
+    const family = /ml|l/.test(u) ? 'volume' : /mg|g|kg/.test(u) ? 'weight' : /매|롤|개입|개|팩|입|ea|겹|정|병|캔|박스|호/.test(u) ? 'count' : 'length';
+    const value = family === 'volume' ? n * (u === 'l' ? 1000 : 1) : family === 'weight' ? n * (u === 'kg' ? 1000 : 1) : n;
+    return { family, value };
+  });
+  const variantCompatible = (a, b) => { const x = variantOf(a).filter(v => v.family !== 'length'), y = variantOf(b).filter(v => v.family !== 'length'); if (!x.length || !y.length) return true; return x.every(v => { const w = y.find(z => z.family === v.family); return !w || Math.abs(v.value - w.value) / Math.max(v.value, w.value, 1) <= .1; }); };
   function sim(a, b) { const A = new Set(a), i = b.filter(t => A.has(t)).length; return i / Math.min(a.length, b.length || 1); }
   /** 상품명 묶기: 핵심 토큰이 70% 이상 겹치면 같은 품목. aliases {name: groupName} 으로 수동/AI 보정 가능 */
   function group(orders, aliases) {
@@ -314,7 +322,7 @@
     for (const o of orders) {
       if (!o.date || !o.name) continue;
       const nm = aliases[o.name] || o.name, t = tokens(nm);
-      let g = gs.find(g => g.alias === nm) || (!aliases[o.name] && gs.find(g => !g.forced && sim(g.t, t) >= 0.7));
+      let g = gs.find(g => g.alias === nm) || (!aliases[o.name] && gs.find(g => !g.forced && sim(g.t, t) >= 0.7 && variantCompatible(g.alias, nm)));
       if (!g) { g = { key: keyOf(nm) || nm, t, list: [], alias: nm, forced: !!aliases[o.name] }; gs.push(g); }
       g.list.push(o);
     }

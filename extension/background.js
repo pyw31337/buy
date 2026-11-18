@@ -73,6 +73,19 @@ chrome.runtime.onMessage.addListener((m, _s, reply) => {
     }).catch(e => reply({ ok: false, error: String(e?.message || e) }));
     return true;
   }
+  if (m.type === 'invalidateThumb') {
+    (async () => {
+      const st = await chrome.storage.local.get(['thumbs', 'thumbMiss', 'orders']);
+      const thumbs = st.thumbs || {}, miss = st.thumbMiss || {};
+      if (m.key) delete thumbs[m.key];
+      const orders = (st.orders || []).map(o => (m.key && o.img === m.url ? { ...o, img: null, photoSource: 'broken' } : o));
+      if (m.key) miss[m.key] = todayStr();
+      await chrome.storage.local.set({ thumbs, thumbMiss: miss, orders });
+      diag('thumb-invalid', true, `key=${m.key || '-'} source=${m.url ? 'remote' : 'unknown'}`);
+      reply({ ok: true });
+    })();
+    return true;
+  }
   if (m.type === 'orderPhotoProgress') { updateOrderPhotoProgress(m.mall, { state: m.state || 'running', text: m.text || '주문 카드 확인 중' }).then(() => reply({ ok: true })); return true; }
   if (m.type === 'openOrderPhotos') { openOrderPhotoPages().then(reply).catch(e => reply({ ok: false, error: String(e?.message || e) })); return true; }
   if (m.type === 'pricesNow') { collectPrices().then(r => notify().then(() => reply(r))); return true; }
