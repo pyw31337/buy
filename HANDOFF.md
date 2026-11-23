@@ -46,7 +46,9 @@
 ## 3. 저장소 구조
 | 경로 | 내용 |
 |---|---|
-| docs/index.html, style.css | 사이트(Pages 루트). 에셋은 `?v=N`으로 캐시를 깝니다(CSS/JS 현재 18, 아이콘/OG는 0142/0143) |
+| docs/index.html, style.css | 사이트(Pages 루트). 에셋은 `?v=N`으로 캐시를 깝니다 |
+| docs/css/lets-design-system.css | Let's Design System (LDS v3.5) 통합 코어 스타일시트 |
+| docs/tokens/lets-design-tokens.json | LDS v3.5 디자인 토큰 사양서 (폰트, 여백, 컬러, 브레이크포인트) |
 | docs/core.js | 파서, 정규화, 묶기, 분석(`LetsBuy`). **수정 후 extension/core.js로 복사 필수** |
 | docs/app.js | 탭(홈 / 살 때 / 내 소비 / 구매 기록), 수집 요약, 구매 기록 목록, 확장 연동 |
 | docs/products.js | '살 때' 카드와 제품 상세, 판단 model() |
@@ -191,4 +193,11 @@ gh release create vX.Y.Z docs/letsbuy-extension-vX.Y.Z.zip -t vX.Y.Z -n "..."
 - **리셀러 폭리 가격 필터링:** PB 상품을 다나와/에누리에서 검색해 11번가/G마켓 등 비공식 리셀러가 2~3배 폭리(마진 30% 초과)로 등록한 가격을 가격비교에서 자동 차단 (`LetsBuy.isResellerPrice`). "곰곰 우유가 서울우유보다 비싸게 비교되는" 문제 해결.
 - **쿠팡 PB 직접 수집 우선순위 부여:** background 수집 시 PB 상품은 다나와/에누리 대신 원천 몰(쿠팡 등) 직접 검색을 최우선 실행하고 우선순위 큐로 처리.
 - **시각적 UI 강화:** '살 때' 카드 및 상세 모달에 `쿠팡 PB`, `마켓컬리 PB` 뱃지 및 플랫폼별 가격 breakdown에서 `리셀러 주의` 배지 제공.
+- **LDS (Let's Design System v3.5) 체계 구축:**
+  - **여백 체계:** 8-Point Grid Spacing Tokens (`--space-1`: 4px ~ `--space-16`: 64px) 및 Safe Area 관리.
+  - **타이포그래피:** Pretendard Variable 기반 스케일 (`--fs-xs` 11px ~ `--fs-display` clamp) 및 가독성 대비 (WCAG AAA 15.8:1).
+  - **스타일 & 안티 박스:** 불필요한 박스 중첩을 배제하고 1px 옅은 헤어라인(`--border-subtle`)과 부드러운 엘리베이션(`--shadow-card`, `--shadow-hover`).
+  - **320px 모바일 제로 오버플로우:** 최소 44px 터치 타깃(Fitts's Law) 및 스택 전환.
+  - **가드 테스트:** `test/lds.js`를 통해 토큰과 파일 간의 정합성을 지속 검증.
+
 

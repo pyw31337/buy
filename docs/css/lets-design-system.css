@@ -1,0 +1,301 @@
+/**
+ * Let's Design System (LDS v3.5.0)
+ * 렛츠 패밀리 서비스 공통 디자인 시스템 (Let's Buy 에디션)
+ * 
+ * [핵심 디자인 규율]
+ * 1. 8-Point Grid 여백 체계 & 유연한 간격 관리 (--space-1 ~ --space-16)
+ * 2. Pretendard Variable 기반 타이포그래피 & WCAG 2.1 AA/AAA 4.5:1+ 고대비 가독성
+ * 3. 안티 벤또 & 탈박스 (Anti-Box): 불필요한 중첩 박스 배제, 1px 옅은 직선 구분선, 절제된 그림자
+ * 4. 320px 모바일 완벽 지원 (Zero-Overflow): min-width: 0, word-break & 세로 적층(Stacking)
+ * 5. iOS Safari PWA Safe Area 여백 및 최소 44px 터치 타깃 (Fitts's Law)
+ */
+
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css");
+
+:root {
+  --lds-version: "3.5.0";
+
+  /* ── 1. 8-Point Grid Spacing Tokens ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ── 2. Typography Scale & Weights ── */
+  --font-family-base: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  --font-family-mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+
+  --fs-xs: 11px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 32px;
+  --fs-display: clamp(28px, 4vw, 40px);
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-extrabold: 800;
+
+  --lh-tight: 1.25;
+  --lh-snug: 1.45;
+  --lh-body: 1.6;
+
+  /* ── 3. High-Contrast Neutral Canvas & Lines ── */
+  --bg-page:        #f8fafc;  /* 부드럽고 깨끗한 캔버스 배경 */
+  --bg-surface:     #ffffff;  /* 카드 및 패널 서피스 */
+  --bg-subtle:      #f1f5f9;  /* 칩, 태그, 보조 배경 */
+  --bg-hover:       #e2e8f0;  /* 마우스 호버 배경 */
+
+  --border-subtle:  #e2e8f0;  /* 1px 옅은 기준선 */
+  --border-strong:  #cbd5e1;  /* 강조 경계선 */
+  --border-active:  #94a3b8;  /* 활성/포커스 보더 */
+  --divider-faint:  #f1f5f9;  /* 초미세 헤어라인 */
+
+  --text-primary:   #0f172a;  /* WCAG AAA 15.8:1 고대비 본문/헤드라인 */
+  --text-secondary: #334155;  /* WCAG AAA 9.6:1 서브 텍스트 */
+  --text-muted:     #64748b;  /* WCAG AA 4.6:1 캡션/보조 정보 */
+  --text-faint:     #94a3b8;  /* 비활성 텍스트 */
+  --text-inverse:   #ffffff;  /* 반전 화이트 텍스트 */
+
+  /* ── 4. Service Signature Color (Let's Buy & Family) ── */
+  --color-buy:        #FF5A36;  /* 렛츠바이 코어 시그니처 오렌지 코랄 */
+  --color-buy-hover:  #E04826;
+  --color-buy-bg:     #FFF5F2;  /* 소프트 오렌지 서피스 */
+  --color-buy-border: #FFD5C7;  /* 은은한 오렌지 보더 */
+
+  --color-law:        #2563eb;  /* 블루 악센트 */
+  --color-law-bg:     #eff6ff;
+  --color-people:     #e11d48;
+  --color-asset:      #4f46e5;
+  --color-insu:       #059669;
+
+  /* ── 5. Semantic Status Colors ── */
+  --status-normal:     #059669;  /* 정상 / 구매 적기 (Emerald) */
+  --status-normal-bg:  #ecfdf5;
+  --status-normal-border: #a7f3d0;
+  --status-warning:    #d97706;  /* 주의 / 관망 (Amber) */
+  --status-warning-bg: #fffbeb;
+  --status-warning-border: #fde68a;
+  --status-danger:     #dc2626;  /* 경고 / 비쌈 / 폭리 (Red) */
+  --status-danger-bg:  #fef2f2;
+  --status-danger-border: #fecaca;
+
+  /* ── 6. Elevation & Shadows ── */
+  --shadow-sm:        0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-card:      0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-hover:     0 8px 24px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  --shadow-floating:  0 12px 32px -4px rgba(15, 23, 42, 0.12);
+
+  /* ── 7. Corner Radii ── */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-full: 9999px;
+
+  /* ── 8. Transitions & Focus ── */
+  --transition-fast: 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-base: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --lds-focus:       #FF5A36;
+
+  /* ── 9. Safe Area Insets ── */
+  --lds-safe-top:    env(safe-area-inset-top, 0px);
+  --lds-safe-right:  env(safe-area-inset-right, 0px);
+  --lds-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --lds-safe-left:   env(safe-area-inset-left, 0px);
+}
+
+/* Base Reset & 320px Zero-Overflow Foundation */
+*, *::before, *::after {
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  font-family: var(--font-family-base);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+}
+
+body {
+  min-height: 100vh;
+  line-height: var(--lh-body);
+  letter-spacing: -0.01em;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+  padding-top: max(0px, env(safe-area-inset-top));
+  padding-bottom: max(0px, env(safe-area-inset-bottom));
+  padding-left: max(0px, env(safe-area-inset-left));
+  padding-right: max(0px, env(safe-area-inset-right));
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, p, span, div, td, th, button, pre, code {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Shared Interactive Focus State */
+:where(button, a, input, textarea, select, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid var(--lds-focus);
+  outline-offset: 2px;
+}
+
+/* ── LDS Primitives ── */
+
+/* Container */
+.lds-container {
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Clean Surface Card (Anti-Box: 1px clean hairline + subtle elevation) */
+.lds-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+}
+.lds-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--border-strong);
+}
+
+/* Custom Buttons (44px min touch target, no clunky native appearance) */
+.lds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+  min-height: 44px;
+  touch-action: manipulation;
+}
+.lds-btn-primary {
+  background: var(--color-buy);
+  color: var(--text-inverse);
+  border-color: var(--color-buy);
+}
+.lds-btn-primary:hover {
+  background: var(--color-buy-hover);
+  border-color: var(--color-buy-hover);
+  transform: translateY(-1px);
+}
+.lds-btn-secondary {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+.lds-btn-secondary:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+/* Chips & Tabs */
+.lds-chip {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+.lds-chip:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+.lds-chip.is-active {
+  background: var(--text-primary);
+  color: var(--text-inverse);
+  border-color: var(--text-primary);
+}
+
+/* Badges & Pills */
+.lds-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-full);
+  line-height: var(--lh-snug);
+  white-space: nowrap;
+}
+.lds-badge-normal {
+  background: var(--status-normal-bg);
+  color: var(--status-normal);
+  border: 1px solid var(--status-normal-border);
+}
+.lds-badge-warning {
+  background: var(--status-warning-bg);
+  color: var(--status-warning);
+  border: 1px solid var(--status-warning-border);
+}
+.lds-badge-danger {
+  background: var(--status-danger-bg);
+  color: var(--status-danger);
+  border: 1px solid var(--status-danger-border);
+}
+.lds-badge-buy {
+  background: var(--color-buy-bg);
+  color: var(--color-buy);
+  border: 1px solid var(--color-buy-border);
+}
+
+/* Hairline Divider */
+.lds-divider {
+  height: 1px;
+  background-color: var(--border-subtle);
+  border: 0;
+  margin: var(--space-4) 0;
+}
+
+/* Stacking for Narrow Screens */
+.lds-stack-on-mobile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+@media (max-width: 639px) {
+  .lds-stack-on-mobile {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+}

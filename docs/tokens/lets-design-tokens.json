@@ -1,0 +1,104 @@
+{
+  "version": "3.5.0",
+  "name": "Let's Design System Tokens — Let's Buy (LDS v3.5)",
+  "brand": {
+    "primary": "#FF5A36",
+    "hover": "#E04826",
+    "surface": "#FFF5F2",
+    "border": "#FFD5C7"
+  },
+  "semantic": {
+    "normal": "#059669",
+    "normalSurface": "#ecfdf5",
+    "warning": "#d97706",
+    "warningSurface": "#fffbeb",
+    "danger": "#dc2626",
+    "dangerSurface": "#fef2f2"
+  },
+  "neutral": {
+    "canvas": "#f8fafc",
+    "surface": "#ffffff",
+    "subtle": "#f1f5f9",
+    "hover": "#e2e8f0",
+    "line": "#e2e8f0",
+    "lineStrong": "#cbd5e1",
+    "textStrong": "#0f172a",
+    "textBody": "#334155",
+    "textMuted": "#64748b",
+    "textFaint": "#94a3b8",
+    "textInverse": "#ffffff"
+  },
+  "typography": {
+    "fontSans": "\"Pretendard Variable\", Pretendard, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif",
+    "fontMono": "ui-monospace, \"SF Mono\", Menlo, Monaco, Consolas, monospace",
+    "scale": {
+      "xs": 11,
+      "sm": 13,
+      "md": 15,
+      "lg": 17,
+      "xl": 20,
+      "2xl": 24,
+      "3xl": 32
+    },
+    "weights": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700,
+      "extrabold": 800
+    },
+    "lineHeights": {
+      "tight": 1.25,
+      "snug": 1.45,
+      "body": 1.6
+    }
+  },
+  "spacing": {
+    "1": 4,
+    "2": 8,
+    "3": 12,
+    "4": 16,
+    "5": 20,
+    "6": 24,
+    "8": 32,
+    "10": 40,
+    "12": 48,
+    "16": 64
+  },
+  "radii": {
+    "sm": 6,
+    "md": 10,
+    "lg": 16,
+    "xl": 20,
+    "full": 9999
+  },
+  "shadows": {
+    "sm": "0 1px 2px 0 rgba(15, 23, 42, 0.05)",
+    "card": "0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04)",
+    "hover": "0 8px 24px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04)",
+    "floating": "0 12px 32px -4px rgba(15, 23, 42, 0.12)"
+  },
+  "breakpoints": {
+    "mobileMin": 320,
+    "mobile": 375,
+    "tablet": 768,
+    "desktop": 1024,
+    "wide": 1440
+  },
+  "interaction": {
+    "minTouchTarget": 44,
+    "focusRing": "0 0 0 2px #FF5A36",
+    "motionDuration": 150
+  },
+  "rules": {
+    "antiBox": {
+      "nestedBoxesForbidden": true,
+      "simultaneousBgBorderShadowForbidden": true,
+      "cleanHairlineDividers": true
+    },
+    "mobile": {
+      "strictZeroOverflowAt320": true,
+      "stackOnMobile": true
+    }
+  }
+}
