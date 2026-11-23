@@ -99,4 +99,35 @@ const pbBuilt = Products.build({
 assert.strictEqual(pbBuilt.now.price, 2450, 'PB 상품은 다나와 11번가 리셀러 가격(12,000원)을 배제하고 쿠팡 공식 가격(2,450원)을 최저가로 채택한다');
 assert.strictEqual(pbBuilt.now.src, '쿠팡', 'PB 상품의 최저가 출처가 쿠팡으로 정상 연결된다');
 
+// v0.18.5: 다나와 기준 + 쿠팡, 네이버, G마켓, 11번가 등 다중 플랫폼 가격 수집 검증
+const gmHtml = `<div class="box__item-container"><span class="text__item">삼다수 2L 6병</span><span class="text__value">5,900</span><a href="http://item.gmarket.co.kr/Item?goodscode=12345"></a></div>`;
+const gmList = LetsBuy.parseSearch('G마켓', gmHtml);
+assert(gmList.length > 0 && gmList[0].price === 5900 && gmList[0].mall === 'G마켓', 'G마켓 검색 결과를 올바르게 파싱한다');
+
+const elHtml = `<li class="c_card_item"><strong class="c_card_item_title">삼다수 2L 6병</strong><span class="c_card_price_value">5,800</span><a href="https://www.11st.co.kr/products/12345"></a></li>`;
+const elList = LetsBuy.parseSearch('11번가', elHtml);
+assert(elList.length > 0 && elList[0].price === 5800 && elList[0].mall === '11번가', '11번가 검색 결과를 올바르게 파싱한다');
+
+const dnwHtml = `\\"productTitle\\":\\"제주 삼다수 2L 6개\\",\\"minPrice\\":5980`;
+const dnwList = LetsBuy.parseSearch('다나와', dnwHtml);
+assert(dnwList.length > 0 && dnwList[0].price === 5980, '다나와 상품 검색 결과를 올바르게 파싱한다');
+
+const samdasooOrders = [{ name: '제주 삼다수 2L 6병', mall: '쿠팡', date: '2026-03-01', price: 6000 }];
+const samKey = LetsBuy.analyze(samdasooOrders, '2026-03-05', {}, { all: true })[0].key;
+const samBuilt = Products.build({
+  orders: samdasooOrders,
+  aliases: {},
+  today: '2026-03-05',
+  prices: {
+    [samKey]: [
+      { date: '2026-03-05', price: 5900, src: '다나와', title: '다나와 최저가' },
+      { date: '2026-03-05', price: 5800, src: '쿠팡', title: '쿠팡 로켓배송' },
+      { date: '2026-03-05', price: 6100, src: 'G마켓', title: 'G마켓 무료배송' },
+      { date: '2026-03-05', price: 6200, src: '11번가', title: '11번가 단독특가' }
+    ]
+  }
+})[0];
+assert(samBuilt.danawaRef && samBuilt.danawaRef.price === 5900, '다나와 가격을 기준가(danawaRef)로 식별한다');
+assert.strictEqual(samBuilt.sources.length, 4, '다나와 기준 쿠팡, G마켓, 11번가 등 다양한 플랫폼 가격을 모두 수집/유지한다');
+
 console.log('V15 SAFETY PASS');

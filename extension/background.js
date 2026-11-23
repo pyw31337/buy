@@ -207,17 +207,30 @@ chrome.runtime.onInstalled.addListener(() => saveOrders([], []).then(() => diag(
 // 가격 소스: 순서대로 시도. 모두 사용자 브라우저(국내 IP)에서 품목당 하루 1회만 요청
 const SOURCES = [
   { name: '다나와', url: q => 'https://search.danawa.com/dsearch.php?query=' + q,
-    parse: h => (h.match(/class="price_sect"[\s\S]{0,500}?<strong>([0-9,]+)<\/strong>/) || h.match(/<em class="prc_c">([0-9,]+)<\/em>/) || [])[1],
-    img: h => { const m = h.match(/class="thumb_image"[\s\S]{0,400}?<img[^>]+(?:data-original|src)="([^"]+)"/); return m && !/noImg|blank/i.test(m[1]) ? (m[1].startsWith('//') ? 'https:' + m[1] : m[1]) : null; } },
+    parse: h => (
+      (h.match(/\\"minPrice(?:Number)?\\"\s*:\s*([0-9]+)/) || [])[1] ||
+      (h.match(/"minPrice(?:Number)?"\s*:\s*([0-9]+)/) || [])[1] ||
+      (h.match(/class="price_sect"[\s\S]{0,500}?<strong>([0-9,]+)<\/strong>/) || [])[1] ||
+      (h.match(/<em class="prc_c">([0-9,]+)<\/em>/) || [])[1]
+    ),
+    img: h => {
+      const m = h.match(/\\"imageUrl\\":\\"([^\\"]+)\\"/) ||
+                h.match(/"imageUrl"\s*:\s*"([^"]+)"/) ||
+                h.match(/class="thumb_image"[\s\S]{0,400}?<img[^>]+(?:data-original|src)="([^"]+)"/);
+      return m && !/noImg|blank/i.test(m[1]) ? (m[1].startsWith('//') ? 'https:' + m[1] : m[1].replace(/\\u0026/g, '&')) : null;
+    }
+  },
   { name: '에누리', url: q => 'https://www.enuri.com/search.jsp?keyword=' + q,
     parse: h => (h.match(/"minprice"\s*:\s*"?([0-9]+)/i) || h.match(/class="tx--price"[^>]*>\s*([0-9,]+)/) || [])[1] },
 ];
 async function fetchText(u) { const c = new AbortController(); const t = setTimeout(() => c.abort(), 15000); try { const r = await fetch(u, { signal: c.signal }); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.text(); } finally { clearTimeout(t); } }
 
-// 쿠팡·네이버쇼핑: 내 브라우저에서 검색 결과를 읽음. 먼저 조용히 요청, 막히면 비활성 탭으로 열어 읽고 닫음
+// 쿠팡·네이버쇼핑·G마켓·11번가: 내 브라우저에서 검색 결과를 읽음. 먼저 조용히 요청, 막히면 비활성 탭으로 열어 읽고 닫음
 const SHOPS = [
   { name: '쿠팡', url: q => 'https://www.coupang.com/np/search?q=' + q + '&lb=1' },
   { name: '네이버', url: q => 'https://search.shopping.naver.com/search/all?query=' + q + '&lb=1' },
+  { name: 'G마켓', url: q => 'https://browse.gmarket.co.kr/search?keyword=' + q + '&lb=1' },
+  { name: '11번가', url: q => 'https://search.11st.co.kr/Search.tmall?kwd=' + q + '&lb=1' },
 ];
 const waiters = {};
 chrome.runtime.onMessage.addListener((m, s) => { if (m && m.type === 'searchHtml' && s.tab && waiters[s.tab.id]) { waiters[s.tab.id](m.html); delete waiters[s.tab.id]; } });

@@ -265,6 +265,44 @@
       const re = /"productTitle"\s*:\s*"((?:[^"\\]|\\.)*)"[\s\S]{0,2500}?"(?:lowPrice|price|mobileLowPrice)"\s*:\s*"?(\d{3,})/g; let m;
       while ((m = re.exec(h)) && out.length < 20) { const seg = h.slice(Math.max(0, m.index - 3000), m.index + 3000), g = k => ((seg.match(new RegExp('"' + k + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"')) || [])[1]); const mall = g('mallName') ? unesc(g('mallName')) : '네이버'; out.push({ title: unesc(m[1]), price: +m[2], mall, img: g('imageUrl') ? unesc(g('imageUrl')).replace(/\\\//g, '/') : null, url: g('crUrl') || g('mallProductUrl') ? unesc(g('crUrl') || g('mallProductUrl')).replace(/\\\//g, '/') : null, cat: g('category1Name') ? unesc(g('category1Name')) + '>' + unesc(g('category2Name') || '') : null }); }
       if (!out.length) { const re2 = /class="[^"]*product_title[^"]*"[^>]*>([\s\S]*?)<\/[a-z]+>[\s\S]{0,3000}?class="[^"]*price_num[^"]*"[^>]*>[\s\S]*?([0-9]{1,3}(?:,[0-9]{3})+)/g; while ((m = re2.exec(h)) && out.length < 20) out.push({ title: unesc(m[1]), price: +m[2].replace(/,/g, ''), mall: '네이버' }); }
+    } else if (src === 'G마켓') {
+      const reJ = /"(?:item_name|itemName)"\s*:\s*"((?:[^"\\]|\\.)*)"[\s\S]{0,1000}?"(?:price_sell|price|item_price)"\s*:\s*"?(\d{3,})/g; let m;
+      while ((m = reJ.exec(h)) && out.length < 20) { out.push({ title: unesc(m[1]), price: +m[2], mall: 'G마켓' }); }
+      if (!out.length) {
+        const parts = h.split(/<div[^>]+class="[^"]*(?:box__item-container|box__information)[^"]*"/).slice(1);
+        for (const p of parts) {
+          const t = (p.match(/class="[^"]*(?:text__item|text__item-title|text__title)[^"]*"[^>]*>([\s\S]*?)<\/[a-z0-9]+>/i) || p.match(/alt="([^"]+)"/) || [])[1];
+          const v = (p.match(/class="[^"]*(?:text__value|box__price-seller)[^"]*"[^>]*>\s*([0-9,]+)/i) || p.match(/<strong>\s*([0-9]{1,3}(?:,[0-9]{3})+)\s*<\/strong>/) || [])[1];
+          const im = (p.match(/<img[^>]+(?:data-original|src)="([^"]+(?:gmkt\.kr|gmarket)[^"]*)"/i) || [])[1];
+          const u = (p.match(/href="([^"]*item\.gmarket\.co\.kr[^"]*|[^"]*goodscode=[0-9]+[^"]*)"/i) || [])[1];
+          if (t && v) out.push({ title: unesc(t), price: +v.replace(/,/g, ''), mall: 'G마켓', img: im ? (im.startsWith('//') ? 'https:' + im : im) : null, url: u ? (u.startsWith('//') ? 'https:' + u : u) : null });
+        }
+      }
+    } else if (src === '11번가') {
+      const reJ = /"productName"\s*:\s*"((?:[^"\\]|\\.)*)"[\s\S]{0,1000}?"finalPrice"\s*:\s*"?(\d{3,})/g; let m;
+      while ((m = reJ.exec(h)) && out.length < 20) { out.push({ title: unesc(m[1]), price: +m[2], mall: '11번가' }); }
+      if (!out.length) {
+        const parts = h.split(/<li[^>]+class="[^"]*(?:c_card_item|c-card-item)[^"]*"/).slice(1);
+        for (const p of parts) {
+          const t = (p.match(/class="[^"]*(?:c_card_item_title|c_card_item_name|c_card_title|c-card-item__title)[^"]*"[^>]*>([\s\S]*?)<\/[a-z0-9]+>/i) || [])[1];
+          const v = (p.match(/class="[^"]*(?:c_card_price_value|c_card_price|value)[^"]*"[^>]*>\s*([0-9,]+)/i) || p.match(/<strong[^>]*>\s*([0-9]{1,3}(?:,[0-9]{3})+)\s*<\/strong>/) || [])[1];
+          const im = (p.match(/<img[^>]+(?:src|data-src)="([^"]+(?:011st\.com|11st)[^"]*)"/i) || [])[1];
+          const u = (p.match(/href="(https?:\/\/www\.11st\.co\.kr\/products\/[^"]+)"/i) || [])[1];
+          if (t && v) out.push({ title: unesc(t), price: +v.replace(/,/g, ''), mall: '11번가', img: im ? (im.startsWith('//') ? 'https:' + im : im) : null, url: u || null });
+        }
+      }
+    } else if (src === '다나와') {
+      const re = /(?:\\"productTitle\\"|"productTitle")\s*:\s*(?:\\"|")([^\\"]+)(?:\\"|")[\s\S]{0,2500}?(?:\\"minPrice\\"|"minPrice")\s*:\s*(\d{3,})/g; let m;
+      while ((m = re.exec(h)) && out.length < 20) { out.push({ title: unesc(m[1]), price: +m[2], mall: '다나와' }); }
+      if (!out.length) {
+        const parts = h.split(/<li[^>]+class="[^"]*(?:prod_item|product-item)[^"]*"/).slice(1);
+        for (const p of parts) {
+          const t = (p.match(/class="[^"]*prod_name[^"]*"[^>]*>([\s\S]*?)<\/a>/i) || [])[1];
+          const v = (p.match(/class="[^"]*price_sect[^"]*"[^>]*>[\s\S]*?<strong>\s*([0-9,]+)\s*<\/strong>/i) || p.match(/<em class="prc_c">\s*([0-9,]+)\s*<\/em>/i) || [])[1];
+          const im = (p.match(/<img[^>]+(?:data-original|src)="([^"]+)"/i) || [])[1];
+          if (t && v) out.push({ title: unesc(t), price: +v.replace(/,/g, ''), mall: '다나와', img: im ? (im.startsWith('//') ? 'https:' + im : im) : null });
+        }
+      }
     }
     return out.filter(x => x.title && x.price >= 100).slice(0, 20);
   }

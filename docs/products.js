@@ -44,6 +44,7 @@
 
     // 리셀러 의심 가격은 제외하고, PB 품목은 원천 몰 우선
     const validSources = sources.filter(x => !x.isReseller && x.matchLevel !== 'low');
+    const danawaRef = sources.find(x => x.src === '다나와' && !x.isReseller) || null;
     const nativeSource = pb.isPB ? validSources.find(x => x.src === pb.mall || (pb.mall === '쿠팡' && /쿠팡/.test(x.src))) : null;
     const now = nativeSource || validSources[0] || (sources.find(x => !x.isReseller) || null);
     const ps = series.slice(-30).map(x => x.price), avg = ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : null, min = ps.length ? Math.min(...ps) : null;
@@ -75,7 +76,7 @@
     else if (pb.isPB) say = `${pb.mall} PB(${pb.brand}) 전용 상품이에요. 외부 오픈마켓 리셀러 가격을 배제하고 ${pb.mall} 공식 가격을 확인하고 있어요.`;
     else say = it.count >= 2 ? `평균 ${it.avgGap}일마다 사셨어요. 현재가는 확장이 매일 모아요.` : '현재가는 확장이 매일 모아요.';
     if (it.count >= 2 && it.daysLeft <= 7 && v.k !== 'wait') say += it.daysLeft < 0 ? ' 다시 살 때가 지났어요.' : ' 곧 다시 살 때예요.';
-    return { ...it, img, sources, now, series, avg: avg && Math.round(avg), min, myLast, yearAgo: ya, vsMine, vsYear, nextDip, verdict: v, score, say, pb };
+    return { ...it, img, sources, now, danawaRef, series, avg: avg && Math.round(avg), min, myLast, yearAgo: ya, vsMine, vsYear, nextDip, verdict: v, score, say, pb };
   }
   function build(d, opt) {
     const L = root.LetsBuy, I = root.LetsBuyInsights; opt = opt || {};
@@ -172,6 +173,7 @@
           <p class="say">${esc(p.say)}</p>
           <div class="pdk">
             <div><span>지금 최저</span><b>${p.now ? lg(p.now.src, 20) + fmt(p.now.price) : '–'}</b></div>
+            ${p.danawaRef ? `<div><span>다나와 기준</span><b>${lg('다나와', 20) + fmt(p.danawaRef.price)}</b></div>` : ''}
             <div><span>내 마지막</span><b>${p.myLast ? fmt(p.myLast.price) : '–'}</b>${pct(p.vsMine, '')}</div>
             <div><span>작년 이맘때</span><b>${p.yearAgo ? fmt(p.yearAgo.price) : '–'}</b>${pct(p.vsYear, '')}</div>
             <div><span>사는 주기</span><b>${p.count >= 2 ? p.avgGap + '일' : '1회'}</b><small>${p.count}회 · ${p.count >= 2 ? (p.daysLeft < 0 ? -p.daysLeft + '일 지남' : 'D-' + p.daysLeft) : ''}</small></div>
@@ -184,10 +186,13 @@
       <div class="dg">
         <section class="pn"><h3>${svg('store', 18)} 플랫폼별 지금 가격</h3>${p.sources.length ? `<div class="ptab">${p.sources.map((x, i) => {
           const isReseller = x.isReseller;
+          const isDanawa = x.src === '다나와';
           const matchDesc = isReseller ? ' · ⚠️ 외부 리셀러 폭리 의심' : x.matchLevel === 'low' ? ' · 유사 상품 가능성' : x.matchLevel === 'medium' ? ' · 상품명 유사도 중간' : x.matchLevel === 'high' ? ' · 상품명 유사도 높음' : ' · 검색 최저가';
           const tagClass = isReseller ? 'reseller-row' : (i ? '' : 'min');
-          return `<a class="pr ${tagClass}" target="_blank" rel="noopener" href="${esc(x.url)}">${lg(x.src, 28)}<span class="pt"><b>${esc(x.src)}</b>${isReseller ? '<span class="warn-pill">리셀러 주의</span>' : ''}<small>${esc(x.title || '')}${matchDesc}</small></span><b class="pp">${fmt(x.price)}</b>${i && !isReseller ? `<small class="gap">+${fmt(x.price - p.sources[0].price)}</small>` : !isReseller ? '<span class="best">최저</span>' : ''}<span class="go">사러 가기 ›</span></a>`;
-        }).join('')}</div>` : `<div class="empty sm">확장이 하루 한 번 쿠팡·네이버·다나와·에누리 가격을 모아요</div>`}</section>
+          const dDiff = p.danawaRef && !isDanawa && !isReseller ? x.price - p.danawaRef.price : null;
+          const dDiffBadge = dDiff != null ? `<small class="ddiff ${dDiff < 0 ? 'cheaper' : ''}">다나와 대비 ${dDiff === 0 ? '동일' : (dDiff > 0 ? '+' : '') + fmt(dDiff)}</small>` : '';
+          return `<a class="pr ${tagClass}" target="_blank" rel="noopener" href="${esc(x.url)}">${lg(x.src, 28)}<span class="pt"><b>${esc(x.src)}${isDanawa ? ' (기준)' : ''}</b>${isReseller ? '<span class="warn-pill">리셀러 주의</span>' : ''}${isDanawa ? '<span class="ref-pill">가격비교 기준</span>' : ''}<small>${esc(x.title || '')}${matchDesc}</small></span>${dDiffBadge}<b class="pp">${fmt(x.price)}</b>${i && !isReseller ? `<small class="gap">+${fmt(x.price - p.sources[0].price)}</small>` : !isReseller ? '<span class="best">최저</span>' : ''}<span class="go">사러 가기 ›</span></a>`;
+        }).join('')}</div>` : `<div class="empty sm">확장이 하루 한 번 다나와(기준)·쿠팡·네이버·G마켓·11번가 가격을 모아요</div>`}</section>
         <section class="pn"><h3>${svg('cart', 18)} 내 구매 기록</h3><div class="hist">${(p.prices || []).slice().reverse().slice(0, 20).map(o => `<div class="hr">${lg(o.mall, 20)}<span>${o.date.replace(/-/g, '.')}</span><b>${fmt(o.price)}</b></div>`).join('') || '<div class="empty sm">가격이 없는 구매예요</div>'}</div></section>
       </div>
       <div class="row"><button class="btn ghost" id="pdEdit">이름·분류 고치기</button><button class="btn ghost" id="pdIgnore">재구매 추천에서 제외</button></div>`;
