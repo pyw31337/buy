@@ -232,35 +232,73 @@ async function shopSearch(shop, q, state) {
   let html = '';
   if (!state.tab) { try { const r = await fetch(shop.url(q), { credentials: 'include' }); html = r.ok ? await r.text() : ''; } catch { html = ''; } }
   let list = html && !blocked(html) ? LetsBuy.parseSearch(shop.name, html) : [];
-  if (!list.length) { state.tab = true; if (state.tabs++ >= 25) { state.off = true; throw new Error('탭 한도'); } html = await viaTab(shop.url(q)); if (blocked(html)) { state.off = true; throw new Error('차단'); } list = LetsBuy.parseSearch(shop.name, html); }
+  if (!list.length) { state.tab = true; if (state.tabs++ >= 50) { state.off = true; throw new Error('탭 한도'); } html = await viaTab(shop.url(q)); if (blocked(html)) { state.off = true; throw new Error('차단'); } list = LetsBuy.parseSearch(shop.name, html); }
   return list;
 }
 
 async function collectPrices() {
   const { orders = [], prices = {}, aliases = {}, cats = {} } = await chrome.storage.local.get(['orders', 'prices', 'aliases', 'cats']);
-  const today = todayStr(), items = LetsBuy.analyze(orders, today, aliases, { all: true }).filter(it => LetsBuy.profileWithCategory(it.name, cats[it.key]).priceTrack).sort((a, b) => b.count - a.count).slice(0, 60); let ok = 0; const fails = {}, st = {};
+  const today = todayStr();
+  const isPriority = it => {
+    const pb = LetsBuy.detectPB(it.name, (it.malls || []).join(' '));
+    return pb.isPB || (it.malls || []).includes('쿠팡');
+  };
+  const items = LetsBuy.analyze(orders, today, aliases, { all: true })
+    .filter(it => LetsBuy.profileWithCategory(it.name, cats[it.key]).priceTrack)
+    .sort((a, b) => (isPriority(b) - isPriority(a)) || (b.count - a.count))
+    .slice(0, 60);
+  let ok = 0; const fails = {}, st = {};
   SHOPS.forEach(s => st[s.name] = { tab: false, tabs: 0, off: false });
   for (const it of items) {
+    const pb = LetsBuy.detectPB(it.name, (it.malls || []).join(' '));
+    const ref = (it.prices && it.prices.length) ? it.prices[it.prices.length - 1].price : null;
     const q = encodeURIComponent(LetsBuy.tokens(it.name).slice(0, 5).join(' ') || it.name);
     const arr = (prices[it.key] || []).slice(), have = new Set(arr.filter(p => p.date === today).map(p => p.src || p.mall));
-    for (const s of SOURCES) {
-      if (have.has(s.name) || have.has(s.name + ' 최저')) continue;
-      try {
-        const html = await fetchText(s.url(q)), v = s.parse(html), im = s.img && s.img(html);
-        const price = v ? +String(v).replace(/,/g, '') : 0;
-        if (!price || price < 100) throw new Error('가격을 못 찾음');
-        arr.push({ date: today, price, mall: s.name + ' 최저', src: s.name, url: s.url(q), img: im || undefined, matchLevel: 'query' }); ok++;
-      } catch (e) { fails[s.name] = (fails[s.name] || 0) + 1; }
-      await new Promise(r => setTimeout(r, 1200));
+
+    // PB 상품(곰곰, 탐사, 코멧, KF365 등)은 오픈마켓 리셀러 가격만 등록된 다나와/에누리 건너뜀
+    if (!pb.isPB) {
+      for (const s of SOURCES) {
+        if (have.has(s.name) || have.has(s.name + ' 최저')) continue;
+        try {
+          const html = await fetchText(s.url(q)), v = s.parse(html), im = s.img && s.img(html);
+          const price = v ? +String(v).replace(/,/g, '') : 0;
+          if (!price || price < 100) throw new Error('가격을 못 찾음');
+          const isReseller = LetsBuy.isResellerPrice({ price, src: s.name, mall: s.name }, it, ref);
+          arr.push({ date: today, price, mall: s.name + ' 최저', src: s.name, url: s.url(q), img: im || undefined, matchLevel: isReseller ? 'low' : 'query', isReseller }); ok++;
+        } catch (e) { fails[s.name] = (fails[s.name] || 0) + 1; }
+        await new Promise(r => setTimeout(r, 1200));
+      }
     }
-    for (const s of SHOPS) {
+
+    // 쇼핑몰 직접 검색: PB 상품은 원천 몰(쿠팡 등)을 최우선으로 수집
+    const shopsToQuery = pb.isPB && pb.mall === '쿠팡'
+      ? SHOPS.filter(s => s.name === '쿠팡').concat(SHOPS.filter(s => s.name !== '쿠팡'))
+      : SHOPS;
+
+    for (const s of shopsToQuery) {
       if (have.has(s.name)) continue;
       try {
-        const m = LetsBuy.bestMatch(it.name, await shopSearch(s, q, st[s.name]));
+        const rawList = await shopSearch(s, q, st[s.name]);
+        const m = LetsBuy.bestMatch(it.name, rawList);
         if (!m) throw new Error('비슷한 상품 없음');
-        arr.push({ date: today, price: m.price, mall: s.name, src: s.name, title: m.title.slice(0, 120), img: m.img || undefined, url: m.url || s.url(q).replace('&lb=1', ''), cat: m.cat || undefined, matchScore: m.matchScore, matchLevel: m.matchLevel }); ok++;
+        const isReseller = LetsBuy.isResellerPrice(m, it, ref);
+        arr.push({
+          date: today,
+          price: m.price,
+          mall: m.mall || s.name,
+          src: s.name,
+          title: m.title.slice(0, 120),
+          img: m.img || undefined,
+          url: m.url || s.url(q).replace('&lb=1', ''),
+          cat: m.cat || undefined,
+          matchScore: m.matchScore,
+          matchLevel: isReseller ? 'low' : m.matchLevel,
+          isReseller,
+          isPB: pb.isPB
+        });
+        ok++;
       } catch (e) { fails[s.name] = (fails[s.name] || 0) + 1; }
-      await new Promise(r => setTimeout(r, 2500 + Math.random() * 1500));
+      await new Promise(r => setTimeout(r, 2000 + Math.random() * 1200));
     }
     prices[it.key] = arr.slice(-1500);
   }

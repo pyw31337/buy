@@ -100,9 +100,14 @@
     return `<svg class="tline" viewBox="0 0 ${W} 64"><line x1="20" x2="${W - 20}" y1="28" y2="28" stroke="#E6E4DF" stroke-width="2"/>${it.dates.map((d, i, a) => `<circle cx="${x(d)}" cy="28" r="${a.length > 20 ? 4 : 7}" fill="#16161A" opacity="${a.length > 20 ? .75 : 1}"/>${a.length <= 8 || i === 0 || i === a.length - 1 ? `<text x="${x(d)}" y="56" font-size="11" text-anchor="${a.length > 8 ? (i ? 'end' : 'start') : 'middle'}" fill="#77777F">${d.slice(2, 7).replace('-', '.')}</text>` : ''}`).join('')}<circle cx="${x(it.nextDate)}" cy="28" r="8" fill="#fff" stroke="#FF5A36" stroke-width="2.5" stroke-dasharray="3 2"/><text x="${x(it.nextDate)}" y="14" font-size="11" font-weight="700" text-anchor="middle" fill="#FF5A36">다음</text></svg>`;
   }
   function pricesFor(it, d) {
-    if (d.prices[it.key]) return d.prices[it.key];
-    const k = Object.keys(d.prices).find(k => it.name.includes(k));
-    return k ? d.prices[k] : [];
+    let p = d.prices[it.key];
+    if (!p) {
+      const k = Object.keys(d.prices).find(k => it.name.includes(k));
+      p = k ? d.prices[k] : [];
+    }
+    if (!p || !p.length) return [];
+    const ref = it.prices && it.prices.length ? it.prices[it.prices.length - 1].price : null;
+    return p.filter(x => !LetsBuy.isResellerPrice(x, it, ref));
   }
   function tagOf(it) {
     if (it.type === '시즌') return `<span class="tag season">시즌 · ${+it.nextDate.slice(5, 7)}월</span>`;
@@ -232,9 +237,13 @@
   }
   function open(it, d) {
     const profile = LetsBuy.profileWithCategory(it.name, store.cats[it.key]), track = profile.priceTrack, pv = track ? priceVerdict(it, d) : null, q = encodeURIComponent(it.name.split(' ').slice(0, 4).join(' '));
-    $('#sheetBody').innerHTML = `<button class="x" id="x">×</button><div class="shead">${thumb(it, 88)}<div><div class="chips">${it.malls.map(mallChip).join('')}</div><h2>${esc(it.name)}</h2></div>${ring(it, 72)}</div>
-      <div class="classify"><b>${esc(profile.category || '실물 상품')} · ${esc(profile.sub || profile.behavior)}</b><span>${esc(profile.reason)}</span></div>
-      ${track ? `${timeline(it)}${pv ? chart(pv.series, pv.paid) + `<p class="meta">지금 ${fmt(pv.now)} · 기간 최저 ${fmt(pv.min)} · 평균 ${fmt(pv.avg)} → <b>${pv.v}</b></p>` : '<p class="meta">가격은 확장이 매일 자동으로 쌓아요</p>'}<h3>다른 곳 가격</h3><div class="links"><a target="_blank" rel="noopener" href="https://search.danawa.com/dsearch.php?query=${q}">다나와에서 보기</a><a target="_blank" rel="noopener" href="https://fallcent.com/search?keyword=${q}">폴센트에서 보기</a><a target="_blank" rel="noopener" href="https://search.shopping.naver.com/search/all?query=${q}">네이버쇼핑</a><a target="_blank" rel="noopener" href="https://www.enuri.com/search.jsp?keyword=${q}">에누리</a><a target="_blank" rel="noopener" href="https://www.coupang.com/np/search?q=${q}">쿠팡</a><a target="_blank" rel="noopener" href="https://www.gmarket.co.kr/n/search?keyword=${q}">G마켓</a><a target="_blank" rel="noopener" href="https://search.11st.co.kr/Search.tmall?kwd=${q}">11번가</a></div>` : `<p class="policyNote">이 항목은 ${esc(profile.entity === 'payment' || profile.entity === 'stored_value' ? '결제·충전 흐름' : '디지털·서비스 소비')}으로 기록하며, 실물 최저가·사진·재구매 추천에서는 제외합니다.</p>`}
+    const pb = LetsBuy.detectPB ? LetsBuy.detectPB(it.name, (it.malls || []).join(' ')) : { isPB: false };
+    const nativeLinks = pb.isPB && pb.mall === '쿠팡'
+      ? `<a target="_blank" rel="noopener" href="https://www.coupang.com/np/search?q=${q}">쿠팡 공식 검색</a><a target="_blank" rel="noopener" href="https://search.shopping.naver.com/search/all?query=${q}">네이버쇼핑</a><a target="_blank" rel="noopener" href="https://fallcent.com/search?keyword=${q}">폴센트</a>`
+      : `<a target="_blank" rel="noopener" href="https://search.danawa.com/dsearch.php?query=${q}">다나와에서 보기</a><a target="_blank" rel="noopener" href="https://fallcent.com/search?keyword=${q}">폴센트에서 보기</a><a target="_blank" rel="noopener" href="https://search.shopping.naver.com/search/all?query=${q}">네이버쇼핑</a><a target="_blank" rel="noopener" href="https://www.enuri.com/search.jsp?keyword=${q}">에누리</a><a target="_blank" rel="noopener" href="https://www.coupang.com/np/search?q=${q}">쿠팡</a><a target="_blank" rel="noopener" href="https://www.gmarket.co.kr/n/search?keyword=${q}">G마켓</a><a target="_blank" rel="noopener" href="https://search.11st.co.kr/Search.tmall?kwd=${q}">11번가</a>`;
+    $('#sheetBody').innerHTML = `<button class="x" id="x">×</button><div class="shead">${thumb(it, 88)}<div><div class="chips">${it.malls.map(mallChip).join('')}${pb.isPB ? `<span class="tag pb">${esc(pb.mall)} PB</span>` : ''}</div><h2>${esc(it.name)}</h2></div>${ring(it, 72)}</div>
+      <div class="classify"><b>${esc(profile.category || '실물 상품')} · ${esc(profile.sub || profile.behavior)}</b><span>${pb.isPB ? `[${esc(pb.mall)} ${esc(pb.brand)}] 리셀러 폭리 방지 적용` : esc(profile.reason)}</span></div>
+      ${track ? `${timeline(it)}${pv ? chart(pv.series, pv.paid) + `<p class="meta">지금 ${fmt(pv.now)} · 기간 최저 ${fmt(pv.min)} · 평균 ${fmt(pv.avg)} → <b>${pv.v}</b></p>` : '<p class="meta">가격은 확장이 매일 자동으로 쌓아요</p>'}<h3>다른 곳 가격</h3><div class="links">${nativeLinks}</div>` : `<p class="policyNote">이 항목은 ${esc(profile.entity === 'payment' || profile.entity === 'stored_value' ? '결제·충전 흐름' : '디지털·서비스 소비')}으로 기록하며, 실물 최저가·사진·재구매 추천에서는 제외합니다.</p>`}
       ${buys(it, d)}
       ${demo ? '' : `<h3>분류</h3><div class="row"><select id="catSel">${LetsBuyInsights.DICT.map(x => x[0] + '/' + x[1]).filter((v, i, a) => a.indexOf(v) === i).concat(['기타/기타']).map(v => `<option ${v === (store.cats[it.key] || (c => c.main + '/' + c.sub)(LetsBuyInsights.categorize(it.name))) ? 'selected' : ''}>${v}</option>`).join('')}</select><button class="btn ghost" id="saveCat">바꾸기</button></div>`}
       ${demo ? '' : `<h3>이름 정리</h3><div class="row"><input id="alias" value="${esc(it.name)}" placeholder="이 품목의 대표 이름"><button class="btn ghost" id="saveAlias">저장</button></div>
@@ -375,7 +384,7 @@
   go(store.orders.length && location.hash !== '#home' ? (['prod', 'items', 'dash'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'prod') : 'home');
   $('#demo').onclick = () => { demo = true; render(); go('prod'); };
   // 확장 연결 (확장의 content script가 이 페이지에 메시지를 보내줌)
-  const REQUIRED_EXTENSION_VERSION = '0.18.3';
+  const REQUIRED_EXTENSION_VERSION = '0.18.4';
   let extInfo = null, extLog = [], extProbe = null, extHealth = null, collectProgress = null, orderPhotoProgress = null, extSettings = { shareThumbs: false };
   function versionAtLeast(actual, required) {
     const a = String(actual || '').split('.').map(n => Number(n) || 0), b = String(required).split('.').map(n => Number(n) || 0);

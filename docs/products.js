@@ -8,23 +8,49 @@
 
   /** 한 제품의 판단: 지금 사세요 / 기다리세요 / 곧 떨어져요(D-n) */
   function model(it, P, today, plat) {
+    const L = root.LetsBuy || (typeof require !== 'undefined' ? require('./core.js') : null);
+    const pb = L?.detectPB ? L.detectPB(it.name, (it.malls || []).join(' ')) : { isPB: false };
     let p = pricesOf(it, P).filter(x => x.price);
     if (plat) p = p.filter(x => srcOf(x) === plat || ['다나와', '에누리'].includes(srcOf(x)) && false);
-    const byDay = {}; p.forEach(x => { const d = x.date; if (!byDay[d] || x.price < byDay[d].price) byDay[d] = x; });
+
+    const mine = it.prices || [], myLast = mine.length ? mine[mine.length - 1] : null;
+    const ref = myLast ? myLast.price : null;
+
+    // PB 전용 상품이거나 과거 구매가 대비 리셀러 의심 가격 필터링
+    p = p.map(x => {
+      const isReseller = L?.isResellerPrice ? L.isResellerPrice(x, it, ref) : false;
+      return isReseller ? { ...x, isReseller: true, matchLevel: 'low' } : x;
+    });
+
+    const validP = p.filter(x => !x.isReseller);
+    const byDay = {}; (validP.length ? validP : p).forEach(x => { const d = x.date; if (!byDay[d] || x.price < byDay[d].price) byDay[d] = x; });
     const series = Object.keys(byDay).sort().map(d => ({ date: d, price: byDay[d].price, src: srcOf(byDay[d]) })).filter(x => day(today) - day(x.date) <= 120);
     const last = p.reduce((m, x) => x.date > m ? x.date : m, '');
     const cur = {}; p.filter(x => day(last) - day(x.date) <= 3).forEach(x => { const s = srcOf(x); if (!cur[s] || x.date > cur[s].date || x.date === cur[s].date && x.price < cur[s].price) cur[s] = x; });
     const q = encodeURIComponent(it.name.replace(/\[[^\]]*\]|\([^)]*\)/g, ' ').trim().split(/\s+/).slice(0, 5).join(' '));
-    const sources = Object.values(cur).map(x => ({ src: srcOf(x), price: x.price, date: x.date, title: x.title, url: x.url || (SRCURL[srcOf(x)] || SRCURL['네이버'])(q), matchScore: x.matchScore, matchLevel: x.matchLevel || 'query' })).sort((a, b) => a.price - b.price);
+    const sources = Object.values(cur).map(x => ({
+      src: srcOf(x),
+      price: x.price,
+      date: x.date,
+      title: x.title,
+      url: x.url || (SRCURL[srcOf(x)] || SRCURL['네이버'])(q),
+      matchScore: x.matchScore,
+      matchLevel: x.matchLevel || 'query',
+      isReseller: x.isReseller,
+      mall: x.mall
+    })).sort((a, b) => a.price - b.price);
     const img = it.img || (p.slice().reverse().find(x => x.img) || {}).img || null;
-    const mine = it.prices || [], myLast = mine.length ? mine[mine.length - 1] : null;
     const ya = mine.filter(x => Math.abs(day(today) - day(x.date) - 365) <= 60).slice(-1)[0] || null;
-    const now = sources[0] || null;
+
+    // 리셀러 의심 가격은 제외하고, PB 품목은 원천 몰 우선
+    const validSources = sources.filter(x => !x.isReseller && x.matchLevel !== 'low');
+    const nativeSource = pb.isPB ? validSources.find(x => x.src === pb.mall || (pb.mall === '쿠팡' && /쿠팡/.test(x.src))) : null;
+    const now = nativeSource || validSources[0] || (sources.find(x => !x.isReseller) || null);
     const ps = series.slice(-30).map(x => x.price), avg = ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : null, min = ps.length ? Math.min(...ps) : null;
     // 반복되는 할인: 평균보다 3% 넘게 싼 날들의 시작점 간격 → 다음 할인 예상일
     let nextDip = null;
     if (series.length >= 14 && avg) { const st = []; series.forEach((x, i) => { const low = x.price <= avg * 0.97, prevLow = i && series[i - 1].price <= avg * 0.97; if (low && !prevLow) st.push(day(x.date)); }); if (st.length >= 2) { const gs = st.slice(1).map((v, i) => v - st[i]), g = Math.round(gs.reduce((a, b) => a + b, 0) / gs.length); let n = st[st.length - 1] + g; while (n <= day(today)) n += g; if (g >= 4) nextDip = { date: iso(n), d: n - day(today), gap: g }; } }
-    const ref = myLast ? myLast.price : null, vsMine = now && ref ? Math.round((now.price - ref) / ref * 100) : null, vsYear = now && ya ? Math.round((now.price - ya.price) / ya.price * 100) : null;
+    const vsMine = now && ref ? Math.round((now.price - ref) / ref * 100) : null, vsYear = now && ya ? Math.round((now.price - ya.price) / ya.price * 100) : null;
     let v, matchReady = true;
     if (now) {
       // v0.14: 판단 근거가 충분할 때만 단정. 가격 기록 7일 미만이면 내 지난 가격과만 비교
@@ -36,6 +62,9 @@
       else if (!enough && !refOk) v = { k: 'ok', t: `가격 모으는 중 ${days}/7일` };
       else v = it.count >= 2 && it.daysLeft <= 7 ? { k: 'buy', t: '지금 사세요' } : { k: 'ok', t: '보통 가격' };
       v.basis = !matchReady ? '검색 결과가 유사 상품일 수 있어요' : enough ? `최근 ${days}일 기준` : refOk ? '내 지난 가격 기준' : '';
+    } else if (pb.isPB) {
+      v = { k: 'due', t: `${pb.mall} 가격 확인 중` };
+      v.basis = `${pb.mall} PB 전용 상품`;
     } else v = it.count >= 2 && it.daysLeft <= 7 ? { k: 'due', t: '살 때 됐어요' } : it.count >= 2 && it.daysLeft < 9999 ? { k: 'ok', t: `D-${it.daysLeft} 후 필요` } : { k: 'ok', t: '가격 모으는 중' };
     const urg = it.count >= 2 ? Math.max(0, 30 - Math.max(0, it.daysLeft)) : 0;
     const score = ({ buy: 100, soon: 70, due: 60, wait: 40, ok: 10 })[v.k] + urg + Math.min(20, it.count) + (vsMine != null && vsMine < 0 ? -vsMine : 0);
@@ -43,9 +72,10 @@
     const won = n => n.toLocaleString('ko-KR') + '원';
     let say = '';
     if (now) say = !matchReady ? `${now.src} 검색 결과가 정확히 같은 구성인지 확인한 뒤 비교해 주세요.` : v.k === 'buy' ? `${now.src} ${won(now.price)} — ${ref ? (now.price <= ref ? `지난번보다 ${won(ref - now.price)} 싸요` : `최근 ${series.length}일 중 가장 싼 편이에요`) : '최근 최저가 근처예요'}.` : v.k === 'soon' ? `${nextDip.gap}일마다 값이 내려가요. ${+nextDip.date.slice(5, 7)}월 ${+nextDip.date.slice(8)}일쯤 기다려 보세요.` : v.k === 'wait' ? `지금은 최근 평균(${won(Math.round(avg))})보다 비싸요.` : `평소 가격이에요.`;
+    else if (pb.isPB) say = `${pb.mall} PB(${pb.brand}) 전용 상품이에요. 외부 오픈마켓 리셀러 가격을 배제하고 ${pb.mall} 공식 가격을 확인하고 있어요.`;
     else say = it.count >= 2 ? `평균 ${it.avgGap}일마다 사셨어요. 현재가는 확장이 매일 모아요.` : '현재가는 확장이 매일 모아요.';
     if (it.count >= 2 && it.daysLeft <= 7 && v.k !== 'wait') say += it.daysLeft < 0 ? ' 다시 살 때가 지났어요.' : ' 곧 다시 살 때예요.';
-    return { ...it, img, sources, now, series, avg: avg && Math.round(avg), min, myLast, yearAgo: ya, vsMine, vsYear, nextDip, verdict: v, score, say };
+    return { ...it, img, sources, now, series, avg: avg && Math.round(avg), min, myLast, yearAgo: ya, vsMine, vsYear, nextDip, verdict: v, score, say, pb };
   }
   function build(d, opt) {
     const L = root.LetsBuy, I = root.LetsBuyInsights; opt = opt || {};
@@ -71,10 +101,11 @@
   const photo = (p, sz) => W('thumb')({ key: p.key, img: p.img, name: p.name }, sz);
   function card(p) {
     const fmt = W('fmt'), esc = W('esc'), lg = W('logo'), sp = p.series.length >= 2 ? p.series.slice(-30) : (p.prices || []).slice(-12);
+    const pbTag = p.pb && p.pb.isPB ? `<span class="pb-tag">${esc(p.pb.mall)} PB</span>` : '';
     return `<button class="pc-card" data-k="${esc(p.key)}">
       <span class="vb" style="--v:${VC[p.verdict.k]}">${esc(p.verdict.t)}</span>
       <span class="pimg">${photo(p, 148)}</span>
-      <b class="pname">${esc(p.name)}</b>
+      <b class="pname">${pbTag}${esc(p.name)}</b>
       <span class="pmeta"><em class="mt">내 기록</em>${p.count}회 · 마지막 ${p.myLast ? fmt(p.myLast.price) : '–'}</span>
       ${p.now ? `<span class="pnow"><i class="ld"></i>${lg(p.now.src, 20)}<b>${fmt(p.now.price)}</b>${pct(p.vsMine, '내 가격')}</span>` : `<span class="pnow none">${W('svg')('search', 16)} 현재가 모으는 중</span>`}
       ${spark(sp)}
@@ -137,7 +168,7 @@
     const el = document.getElementById('pdBody');
     el.innerHTML = `<button class="back" id="pdBack">← 살 때</button>
       <div class="pdtop"><div class="pdimg">${photo(p, 260)}</div>
-        <div class="pdinfo"><span class="vb lg" style="--v:${VC[p.verdict.k]}">${esc(p.verdict.t)}</span>${p.verdict.basis ? `<small class="vbasis">${esc(p.verdict.basis)}</small>` : ''}<h1>${esc(p.name)}</h1>
+        <div class="pdinfo"><span class="vb lg" style="--v:${VC[p.verdict.k]}">${esc(p.verdict.t)}</span>${p.verdict.basis ? `<small class="vbasis">${esc(p.verdict.basis)}</small>` : ''}${p.pb && p.pb.isPB ? `<span class="tag pb">${esc(p.pb.mall)} PB (${esc(p.pb.brand)})</span>` : ''}<h1>${esc(p.name)}</h1>
           <p class="say">${esc(p.say)}</p>
           <div class="pdk">
             <div><span>지금 최저</span><b>${p.now ? lg(p.now.src, 20) + fmt(p.now.price) : '–'}</b></div>
@@ -151,7 +182,12 @@
         </div></div>
       <section class="pn"><h3>${svg('chart', 18)} 가격 추이</h3>${chart(p)}</section>
       <div class="dg">
-        <section class="pn"><h3>${svg('store', 18)} 플랫폼별 지금 가격</h3>${p.sources.length ? `<div class="ptab">${p.sources.map((x, i) => `<a class="pr ${i ? '' : 'min'}" target="_blank" rel="noopener" href="${esc(x.url)}">${lg(x.src, 28)}<span class="pt"><b>${esc(x.src)}</b><small>${esc(x.title || '')}${x.matchLevel === 'low' ? ' · 유사 상품 가능성' : x.matchLevel === 'medium' ? ' · 상품명 유사도 중간' : x.matchLevel === 'high' ? ' · 상품명 유사도 높음' : ' · 검색 최저가'}</small></span><b class="pp">${fmt(x.price)}</b>${i ? `<small class="gap">+${fmt(x.price - p.sources[0].price)}</small>` : '<span class="best">최저</span>'}<span class="go">사러 가기 ›</span></a>`).join('')}</div>` : `<div class="empty sm">확장이 하루 한 번 쿠팡·네이버·다나와·에누리 가격을 모아요</div>`}</section>
+        <section class="pn"><h3>${svg('store', 18)} 플랫폼별 지금 가격</h3>${p.sources.length ? `<div class="ptab">${p.sources.map((x, i) => {
+          const isReseller = x.isReseller;
+          const matchDesc = isReseller ? ' · ⚠️ 외부 리셀러 폭리 의심' : x.matchLevel === 'low' ? ' · 유사 상품 가능성' : x.matchLevel === 'medium' ? ' · 상품명 유사도 중간' : x.matchLevel === 'high' ? ' · 상품명 유사도 높음' : ' · 검색 최저가';
+          const tagClass = isReseller ? 'reseller-row' : (i ? '' : 'min');
+          return `<a class="pr ${tagClass}" target="_blank" rel="noopener" href="${esc(x.url)}">${lg(x.src, 28)}<span class="pt"><b>${esc(x.src)}</b>${isReseller ? '<span class="warn-pill">리셀러 주의</span>' : ''}<small>${esc(x.title || '')}${matchDesc}</small></span><b class="pp">${fmt(x.price)}</b>${i && !isReseller ? `<small class="gap">+${fmt(x.price - p.sources[0].price)}</small>` : !isReseller ? '<span class="best">최저</span>' : ''}<span class="go">사러 가기 ›</span></a>`;
+        }).join('')}</div>` : `<div class="empty sm">확장이 하루 한 번 쿠팡·네이버·다나와·에누리 가격을 모아요</div>`}</section>
         <section class="pn"><h3>${svg('cart', 18)} 내 구매 기록</h3><div class="hist">${(p.prices || []).slice().reverse().slice(0, 20).map(o => `<div class="hr">${lg(o.mall, 20)}<span>${o.date.replace(/-/g, '.')}</span><b>${fmt(o.price)}</b></div>`).join('') || '<div class="empty sm">가격이 없는 구매예요</div>'}</div></section>
       </div>
       <div class="row"><button class="btn ghost" id="pdEdit">이름·분류 고치기</button><button class="btn ghost" id="pdIgnore">재구매 추천에서 제외</button></div>`;

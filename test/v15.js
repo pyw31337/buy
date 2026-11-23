@@ -64,4 +64,39 @@ assert(orderList.includes('isBlocked') && orderList.includes('findNextPagerNode'
 const widget = fs.readFileSync(require('path').join(__dirname, '../extension/widget.js'), 'utf8');
 assert(widget.includes('moved permanently') && widget.includes('cloudfront') && widget.includes('isCoupangProd'), '위젯이 에러 화면에서 오작동하지 않고 상품 상세에서만 동작한다');
 
+// v0.18.4: PB(자체 브랜드) 인식 및 플랫폼별 세분화/리셀러 폭리 필터링 검증
+const pbGomgom = LetsBuy.detectPB('쿠팡 곰곰 신선한 우유 900ml');
+assert(pbGomgom.isPB && pbGomgom.mall === '쿠팡' && pbGomgom.brand === '곰곰', '쿠팡 곰곰 PB 제품을 감지한다');
+const pbTamsa = LetsBuy.detectPB('탐사 스파클링 탄산수 500ml 20개');
+assert(pbTamsa.isPB && pbTamsa.mall === '쿠팡' && pbTamsa.brand === '탐사', '쿠팡 탐사 PB 제품을 감지한다');
+const pbComet = LetsBuy.detectPB('코멧 아기 물티슈 100매');
+assert(pbComet.isPB && pbComet.mall === '쿠팡' && pbComet.brand === '코멧', '쿠팡 코멧 PB 제품을 감지한다');
+const pbKurly = LetsBuy.detectPB('[KF365] 1+등급 무항생제 대란 30구');
+assert(pbKurly.isPB && pbKurly.mall === '마켓컬리' && pbKurly.brand === 'KF365', '마켓컬리 KF365 PB 제품을 감지한다');
+const pbSSG = LetsBuy.detectPB('이마트 노브랜드 버터쿠키 400g');
+assert(pbSSG.isPB && pbSSG.mall === 'SSG' && pbSSG.brand === '노브랜드', '이마트 노브랜드 PB 제품을 감지한다');
+const nonPB = LetsBuy.detectPB('서울우유 1L');
+assert(!nonPB.isPB, '일반 제조사 브랜드는 PB로 오인하지 않는다');
+
+// 리셀러 폭리 가격 차단 검증
+const gomgomItem = { name: '쿠팡 곰곰 신선한 우유 900ml', prices: [{ price: 2500, date: '2026-03-01' }] };
+assert(LetsBuy.isResellerPrice({ price: 11900, src: '다나와' }, gomgomItem), '쿠팡 PB를 다나와 오픈마켓에서 폭리로 판매하는 가격을 리셀러로 차단한다');
+assert(!LetsBuy.isResellerPrice({ price: 2490, src: '쿠팡' }, gomgomItem), '쿠팡 PB의 쿠팡 공식 가격은 정상 수용한다');
+
+const pbOrders = [{ name: '쿠팡 곰곰 신선한 우유 900ml', mall: '쿠팡', date: '2026-03-01', price: 2500 }];
+const pbKey = LetsBuy.analyze(pbOrders, '2026-03-05', {}, { all: true })[0].key;
+const pbBuilt = Products.build({
+  orders: pbOrders,
+  aliases: {},
+  today: '2026-03-05',
+  prices: {
+    [pbKey]: [
+      { date: '2026-03-05', price: 12000, src: '다나와', isReseller: true, title: '곰곰 우유 11번가 리셀러' },
+      { date: '2026-03-05', price: 2450, src: '쿠팡', title: '곰곰 신선한 우유 900ml' }
+    ]
+  }
+})[0];
+assert.strictEqual(pbBuilt.now.price, 2450, 'PB 상품은 다나와 11번가 리셀러 가격(12,000원)을 배제하고 쿠팡 공식 가격(2,450원)을 최저가로 채택한다');
+assert.strictEqual(pbBuilt.now.src, '쿠팡', 'PB 상품의 최저가 출처가 쿠팡으로 정상 연결된다');
+
 console.log('V15 SAFETY PASS');

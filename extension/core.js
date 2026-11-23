@@ -259,12 +259,12 @@
         const t = (p.match(/class="[^"]*(?:\bname\b|productName)[^"]*"[^>]*>([\s\S]*?)<\/div>/) || [])[1];
         const v = (p.match(/class="[^"]*(?:price-value|priceValue|Price_priceValue)[^"]*"[^>]*>\s*([0-9,]+)/) || p.match(/<strong[^>]*>\s*([0-9]{1,3}(?:,[0-9]{3})+)\s*<\/strong>\s*원?/) || [])[1];
         const im = (p.match(/<img[^>]+(?:data-img-src|data-src|src)="([^"]+(?:thumbnail|image)[^"]*)"/i) || [])[1], u = (p.match(/href="(\/vp\/products\/[^"]+)"/) || [])[1];
-        if (t && v) out.push({ title: unesc(t), price: +v.replace(/,/g, ''), img: im ? (im.startsWith('//') ? 'https:' + im : im) : null, url: u ? 'https://www.coupang.com' + u.replace(/&amp;/g, '&') : null });
+        if (t && v) out.push({ title: unesc(t), price: +v.replace(/,/g, ''), mall: '쿠팡', img: im ? (im.startsWith('//') ? 'https:' + im : im) : null, url: u ? 'https://www.coupang.com' + u.replace(/&amp;/g, '&') : null });
       }
     } else if (src === '네이버') {
       const re = /"productTitle"\s*:\s*"((?:[^"\\]|\\.)*)"[\s\S]{0,2500}?"(?:lowPrice|price|mobileLowPrice)"\s*:\s*"?(\d{3,})/g; let m;
-      while ((m = re.exec(h)) && out.length < 20) { const seg = h.slice(Math.max(0, m.index - 3000), m.index + 3000), g = k => ((seg.match(new RegExp('"' + k + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"')) || [])[1]); out.push({ title: unesc(m[1]), price: +m[2], img: g('imageUrl') ? unesc(g('imageUrl')).replace(/\\\//g, '/') : null, url: g('crUrl') || g('mallProductUrl') ? unesc(g('crUrl') || g('mallProductUrl')).replace(/\\\//g, '/') : null, cat: g('category1Name') ? unesc(g('category1Name')) + '>' + unesc(g('category2Name') || '') : null }); }
-      if (!out.length) { const re2 = /class="[^"]*product_title[^"]*"[^>]*>([\s\S]*?)<\/[a-z]+>[\s\S]{0,3000}?class="[^"]*price_num[^"]*"[^>]*>[\s\S]*?([0-9]{1,3}(?:,[0-9]{3})+)/g; while ((m = re2.exec(h)) && out.length < 20) out.push({ title: unesc(m[1]), price: +m[2].replace(/,/g, '') }); }
+      while ((m = re.exec(h)) && out.length < 20) { const seg = h.slice(Math.max(0, m.index - 3000), m.index + 3000), g = k => ((seg.match(new RegExp('"' + k + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"')) || [])[1]); const mall = g('mallName') ? unesc(g('mallName')) : '네이버'; out.push({ title: unesc(m[1]), price: +m[2], mall, img: g('imageUrl') ? unesc(g('imageUrl')).replace(/\\\//g, '/') : null, url: g('crUrl') || g('mallProductUrl') ? unesc(g('crUrl') || g('mallProductUrl')).replace(/\\\//g, '/') : null, cat: g('category1Name') ? unesc(g('category1Name')) + '>' + unesc(g('category2Name') || '') : null }); }
+      if (!out.length) { const re2 = /class="[^"]*product_title[^"]*"[^>]*>([\s\S]*?)<\/[a-z]+>[\s\S]{0,3000}?class="[^"]*price_num[^"]*"[^>]*>[\s\S]*?([0-9]{1,3}(?:,[0-9]{3})+)/g; while ((m = re2.exec(h)) && out.length < 20) out.push({ title: unesc(m[1]), price: +m[2].replace(/,/g, ''), mall: '네이버' }); }
     }
     return out.filter(x => x.title && x.price >= 100).slice(0, 20);
   }
@@ -432,6 +432,54 @@
     const recurring = ['식품', '영양제', '생활용품', '육아', '반려동물', '뷰티', '문구·완구'].includes(category);
     return { ...p, category, sub, confidence: 1, behavior: recurring ? 'consumable' : p.behavior, recommend: recurring, reason: recurring ? '직접 분류한 반복 구매 가능 실물 품목이에요' : '직접 분류한 비정기·내구 실물 품목이에요' };
   }
-  const api = { THUMBS, thumbHash, findImg, imgSrc, parseSearch, bestMatch, mailKind, FAILS, backouts, parseEml, imgBlockItems, orderBlockItems, tableItems, labelItems, normName, decodeQP, isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won, itemProfile, profileWithCategory };
+  // ── PB(자체 브랜드) 및 유통사 전용 브랜드 감지 ──
+  const PB_MAP = [
+    { mall: '쿠팡', brands: ['곰곰', '탐사', '코멧', '캐럿', '비타할로', '줌', '바스틀리', '베이스알파', '루나벨', '스냅햇'], re: /(?:^|\s|\[|\()(곰곰|탐사|코멧|캐럿|비타할로|줌|바스틀리|베이스알파|루나벨|스냅햇)(?:\s|\]|\)|$)/i },
+    { mall: '마켓컬리', brands: ['KF365', 'KS365', '컬리스', 'Kurly'], re: /(?:^|\s|\[|\()(KF365|KS365|컬리스|kurly['’]?s?)(?:\s|\]|\)|$)/i },
+    { mall: 'SSG', brands: ['노브랜드', '피코크', '자주'], re: /(?:^|\s|\[|\()(노브랜드|피코크|자주|no\s*brand|peacock|jaju)(?:\s|\]|\)|$)/i },
+    { mall: '홈플러스', brands: ['시그니처', '심플러스'], re: /(?:^|\s|\[|\()(홈플러스\s*시그니처|시그니처|심플러스|simplus)(?:\s|\]|\)|$)/i },
+    { mall: '롯데ON', brands: ['오늘좋은', '요리하다', '초이스엘'], re: /(?:^|\s|\[|\()(오늘좋은|요리하다|초이스엘)(?:\s|\]|\)|$)/i }
+  ];
+
+  function detectPB(name, mallHint) {
+    const s = String(name || '').trim();
+    for (const pb of PB_MAP) {
+      const m = s.match(pb.re);
+      if (m) return { isPB: true, mall: pb.mall, brand: m[1] };
+    }
+    if (/쿠팡/.test(String(mallHint || '')) && /로켓(?:배송|프레시|와우)/.test(s)) {
+      return { isPB: false, mall: '쿠팡', brand: null, isRocket: true };
+    }
+    return { isPB: false, mall: null, brand: null };
+  }
+
+  // ── 비정상 리셀러 폭리 가격 또는 가격비교 오염 감지 ──
+  function isResellerPrice(priceEntry, item, refPrice) {
+    if (!priceEntry) return false;
+    const name = typeof item === 'string' ? item : item?.name || '';
+    const malls = typeof item === 'object' && item?.malls ? item.malls.join(' ') : '';
+    const pb = detectPB(name, malls);
+    const src = priceEntry.src || priceEntry.mall || '';
+    const p = priceEntry.price;
+    const ref = refPrice || (typeof item === 'object' && item?.prices?.length ? item.prices[item.prices.length - 1].price : null);
+
+    if (pb.isPB) {
+      const isNative = (pb.mall === '쿠팡' && /쿠팡/.test(src)) ||
+                       (pb.mall === '마켓컬리' && /컬리/.test(src)) ||
+                       (pb.mall === 'SSG' && /SSG|이마트/.test(src));
+      if (!isNative) {
+        // PB 전용 상품을 오픈마켓에서 30% 이상 부풀려 판매하는 리셀러 차단
+        if (ref && p > ref * 1.3) return true;
+        // 쿠팡 PB인데 다나와/에누리 최저가로 잡히는 11번가/G마켓 리셀러 가격 원천 차단
+        if (['다나와', '에누리', '11번가', 'G마켓', '옥션'].includes(src) && pb.mall === '쿠팡') return true;
+      }
+    }
+    // 일반 상품도 지난 구매 단가 대비 2.2배 초과(묶음 오인/리셀러) 또는 0.35배 미만(미끼) 이상치 제외
+    if (ref && p > ref * 2.2) return true;
+    if (ref && p < ref * 0.35) return true;
+    return false;
+  }
+
+  const api = { THUMBS, thumbHash, findImg, imgSrc, parseSearch, bestMatch, mailKind, FAILS, backouts, parseEml, imgBlockItems, orderBlockItems, tableItems, labelItems, normName, decodeQP, isProductName, htmlTokens, dedupe, parseOrderList, parseMail, parseItems, analyze, keyOf, tokens, group, sim, detectMall, won, itemProfile, profileWithCategory, detectPB, isResellerPrice };
   if (typeof module !== 'undefined') module.exports = api; else root.LetsBuy = api;
 })(typeof self !== 'undefined' ? self : this);
